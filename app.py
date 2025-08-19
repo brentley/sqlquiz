@@ -6,10 +6,24 @@ from datetime import datetime
 import os
 import re
 
+# Get version info from environment variables
+def get_version_info():
+    return {
+        'git_commit': os.getenv('GIT_COMMIT', 'unknown')[:7],
+        'build_date': os.getenv('BUILD_DATE', 'unknown'),
+        'version': os.getenv('VERSION', '1.0.0'),
+        'environment': os.getenv('FLASK_ENV', 'development')
+    }
+
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-in-production'
 
 DATABASE = 'healthcare_quiz.db'
+
+# Make version info available to all templates
+@app.context_processor
+def inject_version_info():
+    return get_version_info()
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
@@ -209,20 +223,20 @@ def api_sample_data(table_name):
 def health():
     """Standardized health check endpoint."""
     import time
-    import os
     
     start_time = getattr(app, 'start_time', time.time())
     if not hasattr(app, 'start_time'):
         app.start_time = start_time
     
+    version_info = get_version_info()
     health_status = {
         'status': 'healthy',
         'service': 'sqlquiz',
-        'version': os.getenv('VERSION', '1.0.0'),
-        'commit': os.getenv('GIT_COMMIT', 'unknown')[:7],
-        'build_date': os.getenv('BUILD_DATE', 'unknown'),
+        'version': version_info['version'],
+        'commit': version_info['git_commit'],
+        'build_date': version_info['build_date'],
         'uptime': int(time.time() - start_time),
-        'environment': os.getenv('FLASK_ENV', 'development'),
+        'environment': version_info['environment'],
         'checks': {}
     }
     

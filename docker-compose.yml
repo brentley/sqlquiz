@@ -1,6 +1,6 @@
 services:
   sqlquiz:
-    image: ghcr.io/visiquate/sqlquiz:latest
+    image: ghcr.io/brentley/sqlquiz:latest
     container_name: sqlquiz
     restart: unless-stopped
     environment:

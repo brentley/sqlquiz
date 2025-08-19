@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import sqlite3
 import json
 import hashlib
 from datetime import datetime
 import os
 import re
+import time
 
 # Get version info from environment variables
 def get_version_info():
@@ -16,19 +17,166 @@ def get_version_info():
     }
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-in-production'
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-change-in-production')
 
 DATABASE = 'healthcare_quiz.db'
-
-# Make version info available to all templates
-@app.context_processor
-def inject_version_info():
-    return get_version_info()
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
+
+def init_user_tables():
+    """Initialize user tracking tables"""
+    conn = get_db_connection()
+    try:
+        # Create users table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT,
+                first_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                total_sessions INTEGER DEFAULT 0
+            )
+        ''')
+        
+        # Create user_sessions table
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                session_id TEXT UNIQUE NOT NULL,
+                start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ip_address TEXT,
+                user_agent TEXT,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        ''')
+        
+        # Create query_logs table  
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS query_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                session_id TEXT,
+                query_text TEXT NOT NULL,
+                execution_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                success BOOLEAN NOT NULL,
+                error_message TEXT,
+                results_count INTEGER,
+                ip_address TEXT,
+                FOREIGN KEY (user_id) REFERENCES users (id)
+            )
+        ''')
+        
+        conn.commit()
+    finally:
+        conn.close()
+
+# Initialize user tables on startup
+init_user_tables()
+
+def get_or_create_user(username, email=None):
+    """Get existing user or create new one"""
+    conn = get_db_connection()
+    try:
+        # Try to find existing user
+        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        
+        if user:
+            # Update last seen
+            conn.execute('UPDATE users SET last_seen = CURRENT_TIMESTAMP WHERE id = ?', (user['id'],))
+            conn.commit()
+            return dict(user)
+        else:
+            # Create new user
+            cursor = conn.execute(
+                'INSERT INTO users (username, email, total_sessions) VALUES (?, ?, 1)',
+                (username, email or '')
+            )
+            user_id = cursor.lastrowid
+            conn.commit()
+            
+            # Return new user
+            new_user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+            return dict(new_user)
+    finally:
+        conn.close()
+
+def create_user_session(user_id, ip_address, user_agent):
+    """Create a new user session"""
+    import uuid
+    session_id = str(uuid.uuid4())
+    
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            '''INSERT INTO user_sessions (user_id, session_id, ip_address, user_agent)
+               VALUES (?, ?, ?, ?)''',
+            (user_id, session_id, ip_address, user_agent)
+        )
+        
+        # Update user total sessions count
+        conn.execute(
+            'UPDATE users SET total_sessions = total_sessions + 1 WHERE id = ?',
+            (user_id,)
+        )
+        
+        conn.commit()
+        return session_id
+    finally:
+        conn.close()
+
+def update_session_activity(session_id):
+    """Update last activity for session"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            'UPDATE user_sessions SET last_activity = CURRENT_TIMESTAMP WHERE session_id = ?',
+            (session_id,)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+def log_query_execution(user_id, session_id, query_text, success, error_message=None, results_count=0, ip_address=None):
+    """Log a query execution"""
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            '''INSERT INTO query_logs (user_id, session_id, query_text, success, error_message, results_count, ip_address)
+               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (user_id, session_id, query_text, success, error_message, results_count, ip_address)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+def require_login(f):
+    """Decorator to require user login"""
+    from functools import wraps
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        
+        # Update session activity
+        if 'session_id' in session:
+            update_session_activity(session['session_id'])
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Make version info available to all templates
+@app.context_processor
+def inject_version_info():
+    context = get_version_info()
+    context['time'] = time  # Make time module available to templates
+    return context
 
 def execute_user_query(query):
     """Execute user-provided SQL query safely (read-only)"""
@@ -118,17 +266,54 @@ def check_query_answer(user_query, expected_query):
             'message': f"Incorrect. Your query returned {len(user_result['results'])} rows, expected {len(expected_result['results'])} rows."
         }
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """User login/registration"""
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        
+        if not username:
+            return render_template('login.html', error='Username is required')
+        
+        # Get or create user
+        user = get_or_create_user(username, email)
+        
+        # Create session
+        ip_address = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
+        user_agent = request.headers.get('User-Agent', '')
+        session_id = create_user_session(user['id'], ip_address, user_agent)
+        
+        # Set session variables
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['session_id'] = session_id
+        session['login_time'] = time.time()
+        
+        return redirect(url_for('index'))
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """User logout"""
+    session.clear()
+    return redirect(url_for('login'))
+
 @app.route('/')
+@require_login
 def index():
     return render_template('index.html')
 
 @app.route('/explore')
 @app.route('/practice')  # Keep old route for compatibility
+@require_login
 def data_explorer():
     """Data Explorer - execute any SELECT query"""
     return render_template('explore.html')
 
 @app.route('/api/execute', methods=['POST'])
+@require_login
 def api_execute():
     """Execute SQL query and return results"""
     data = request.get_json()
@@ -142,17 +327,36 @@ def api_execute():
             'columns': []
         })
     
+    # Execute query
     result = execute_user_query(query)
+    
+    # Log the query execution
+    user_id = session.get('user_id')
+    session_id = session.get('session_id')
+    ip_address = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
+    
+    log_query_execution(
+        user_id=user_id,
+        session_id=session_id,
+        query_text=query,
+        success=result['success'],
+        error_message=result.get('error'),
+        results_count=len(result.get('results', [])),
+        ip_address=ip_address
+    )
+    
     return jsonify(result)
 
 # Quiz endpoints removed - app now focuses on data exploration
 
 @app.route('/schema')
+@require_login
 def schema_reference():
     """Schema reference page - opens in separate window"""
     return render_template('schema.html')
 
 @app.route('/api/schema')
+@require_login
 def api_schema():
     """Get database schema information"""
     conn = get_db_connection()
@@ -180,6 +384,7 @@ def api_schema():
         conn.close()
 
 @app.route('/api/sample-data/<table_name>')
+@require_login
 def api_sample_data(table_name):
     """Get sample data from a table"""
     # Validate table name to prevent SQL injection
@@ -247,4 +452,4 @@ def health():
     return jsonify(health_status), status_code
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5002)

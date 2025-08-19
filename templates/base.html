@@ -43,6 +43,27 @@
                             <i class="fas fa-search me-1"></i>Data Explorer
                         </a>
                     </li>
+                    {% if session.username %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user me-1"></i>{{ session.username }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><span class="dropdown-header">Session Info</span></li>
+                            <li><span class="dropdown-item-text">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Online: {{ "%.1f"|format((time.time() - session.login_time) / 60) }} min
+                                </small>
+                            </span></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

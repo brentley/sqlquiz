@@ -122,15 +122,11 @@ def check_query_answer(user_query, expected_query):
 def index():
     return render_template('index.html')
 
-@app.route('/practice')
-def practice():
-    """Free practice mode - execute any SELECT query"""
-    return render_template('practice.html')
-
-@app.route('/quiz')
-def quiz():
-    """Structured quiz mode"""
-    return render_template('quiz.html')
+@app.route('/explore')
+@app.route('/practice')  # Keep old route for compatibility
+def data_explorer():
+    """Data Explorer - execute any SELECT query"""
+    return render_template('explore.html')
 
 @app.route('/api/execute', methods=['POST'])
 def api_execute():
@@ -149,27 +145,12 @@ def api_execute():
     result = execute_user_query(query)
     return jsonify(result)
 
-@app.route('/api/quiz/questions')
-def api_quiz_questions():
-    """Get quiz questions from JSON file"""
-    try:
-        with open('quiz_questions.json', 'r') as f:
-            questions = json.load(f)
-        return jsonify(questions)
-    except FileNotFoundError:
-        return jsonify({'error': 'Quiz questions file not found'}), 500
-    except json.JSONDecodeError:
-        return jsonify({'error': 'Invalid quiz questions format'}), 500
+# Quiz endpoints removed - app now focuses on data exploration
 
-@app.route('/api/quiz/check', methods=['POST'])
-def api_quiz_check():
-    """Check if user's query answer is correct"""
-    data = request.get_json()
-    user_query = data.get('query', '')
-    expected_query = data.get('expected_query', '')
-    
-    result = check_query_answer(user_query, expected_query)
-    return jsonify(result)
+@app.route('/schema')
+def schema_reference():
+    """Schema reference page - opens in separate window"""
+    return render_template('schema.html')
 
 @app.route('/api/schema')
 def api_schema():

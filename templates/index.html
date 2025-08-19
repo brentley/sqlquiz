@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}SQLQuiz - Home{% endblock %}
+{% block title %}Data Explorer - Home{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -8,46 +8,29 @@
         <!-- Hero Section -->
         <div class="text-center mb-5">
             <h1 class="display-4 mb-3">
-                <i class="fas fa-database text-primary me-3"></i>SQLQuiz
+                <i class="fas fa-database text-primary me-3"></i>Data Explorer
             </h1>
             <p class="lead text-muted">
-                Master SQL with real healthcare invoicing data. Practice queries and test your skills!
+                Explore and analyze real healthcare invoicing data with SQL. Discover insights from authentic medical billing records!
             </p>
         </div>
 
         <!-- Features -->
         <div class="row mb-5">
-            <div class="col-md-6 mb-4">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body text-center p-4">
+            <div class="col-md-12 mb-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center p-5">
                         <div class="mb-3">
-                            <i class="fas fa-code fa-3x text-success"></i>
+                            <i class="fas fa-search fa-4x text-primary"></i>
                         </div>
-                        <h5 class="card-title">Practice Mode</h5>
-                        <p class="card-text">
-                            Write and execute SQL queries freely. Explore the healthcare database 
-                            with guided examples and real-time results.
+                        <h5 class="card-title mb-3">Data Explorer</h5>
+                        <p class="card-text mb-4">
+                            Dive into authentic healthcare billing data with SQL queries. Analyze patient records, 
+                            invoices, insurance claims, and medical procedures. Discover patterns, trends, and insights 
+                            from real-world medical billing scenarios.
                         </p>
-                        <a href="{{ url_for('practice') }}" class="btn btn-success">
-                            <i class="fas fa-play me-2"></i>Start Practicing
-                        </a>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-6 mb-4">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body text-center p-4">
-                        <div class="mb-3">
-                            <i class="fas fa-clipboard-list fa-3x text-warning"></i>
-                        </div>
-                        <h5 class="card-title">Quiz Mode</h5>
-                        <p class="card-text">
-                            Test your SQL knowledge with structured questions. Get instant 
-                            feedback and track your progress through different difficulty levels.
-                        </p>
-                        <a href="{{ url_for('quiz') }}" class="btn btn-warning">
-                            <i class="fas fa-brain me-2"></i>Take Quiz
+                        <a href="{{ url_for('data_explorer') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-search me-2"></i>Start Exploring
                         </a>
                     </div>
                 </div>

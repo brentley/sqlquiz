@@ -30,12 +30,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      - WATCHTOWER_HTTP_API_UPDATE=true
-      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN}
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_STOPPED=false
       - WATCHTOWER_SCOPE=sqlquiz
-      - WATCHTOWER_HTTP_API_METRICS=true
     command: --interval 30 --scope sqlquiz --cleanup
     networks:
       - sqlquiz_network

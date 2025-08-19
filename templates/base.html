@@ -15,7 +15,7 @@
     <link href="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/theme/default.css" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}?v={{ git_commit }}" rel="stylesheet">
     
     {% block head %}{% endblock %}
 </head>
@@ -24,7 +24,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-database me-2"></i>SQLQuiz
+                <i class="fas fa-database me-2"></i>Data Explorer
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -39,13 +39,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('practice') }}">
-                            <i class="fas fa-code me-1"></i>Practice
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('quiz') }}">
-                            <i class="fas fa-clipboard-list me-1"></i>Quiz
+                        <a class="nav-link" href="{{ url_for('data_explorer') }}">
+                            <i class="fas fa-search me-1"></i>Data Explorer
                         </a>
                     </li>
                 </ul>
@@ -63,7 +58,7 @@
         <div class="container">
             <div class="text-center">
                 <p class="text-muted mb-2">
-                    <i class="fas fa-database me-2"></i>SQLQuiz - Healthcare Database Practice
+                    <i class="fas fa-database me-2"></i>Data Explorer - Healthcare Database
                 </p>
                 <p class="text-muted mb-1">
                     Practice your SQL skills with real healthcare data
@@ -82,7 +77,7 @@
     <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/lib/codemirror.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/sql/sql.js"></script>
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v={{ git_commit }}"></script>
     
     {% block scripts %}{% endblock %}
 </body>

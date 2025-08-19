@@ -1,0 +1,459 @@
+{% extends "base.html" %}
+
+{% block title %}Data Explorer - Healthcare Database{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-3">
+        <!-- Sidebar -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-search me-2"></i>Data Explorer
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    Explore and analyze healthcare data with SQL queries. All queries are executed safely in read-only mode.
+                </p>
+                
+                <button class="btn btn-outline-success btn-sm w-100 mb-2" onclick="loadSampleQuery('basic')">
+                    <i class="fas fa-play me-2"></i>Load Basic Query
+                </button>
+                <button class="btn btn-outline-success btn-sm w-100 mb-2" onclick="loadSampleQuery('join')">
+                    <i class="fas fa-link me-2"></i>Load JOIN Example
+                </button>
+                <button class="btn btn-outline-success btn-sm w-100 mb-2" onclick="loadSampleQuery('aggregate')">
+                    <i class="fas fa-calculator me-2"></i>Load Aggregation
+                </button>
+                
+                <hr>
+                
+                <button class="btn btn-outline-info btn-sm w-100 mb-2" onclick="openSchemaWindow()">
+                    <i class="fas fa-external-link-alt me-2"></i>Schema Reference
+                </button>
+                <button class="btn btn-outline-info btn-sm w-100" onclick="clearResults()">
+                    <i class="fas fa-trash me-2"></i>Clear Results
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Help -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">
+                    <i class="fas fa-question-circle me-2"></i>Quick Tips
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled small">
+                    <li class="mb-2">
+                        <strong>Ctrl+Enter:</strong> Execute query
+                    </li>
+                    <li class="mb-2">
+                        <strong>Ctrl+/:</strong> Comment/uncomment
+                    </li>
+                    <li class="mb-2">
+                        <strong>Tab:</strong> Auto-indent
+                    </li>
+                </ul>
+                
+                <hr class="my-3">
+                
+                <h6 class="small">Common Tables:</h6>
+                <ul class="list-unstyled small">
+                    <li><code>patients</code></li>
+                    <li><code>invoices</code></li>
+                    <li><code>invoice_details</code></li>
+                    <li><code>insurance_plans</code></li>
+                    <li><code>service_lines</code></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-9">
+        <!-- Query Editor -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-code me-2"></i>SQL Query Editor
+                </h6>
+                <div>
+                    <button class="btn btn-success btn-sm" onclick="executeQuery()">
+                        <i class="fas fa-play me-2"></i>Run Query <small>(Ctrl+Enter)</small>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <textarea id="sqlEditor" class="form-control border-0" 
+                          placeholder="Enter your SQL query here...
+Example: SELECT * FROM patients LIMIT 10;">SELECT * FROM patients LIMIT 10;</textarea>
+            </div>
+        </div>
+
+        <!-- Results Area -->
+        <div id="resultsContainer">
+            <!-- Results will be dynamically loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- Schema Modal -->
+<div class="modal fade" id="schemaModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Database Schema & Sample Data</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="schemaContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading schema...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let sqlEditor;
+
+// Sample queries
+const sampleQueries = {
+    basic: `-- Basic patient information
+SELECT patient_id, date_of_birth, billing_office 
+FROM patients 
+LIMIT 10;`,
+    
+    join: `-- Invoices with patient information
+SELECT 
+    i.invoice_id,
+    i.patient_id,
+    p.date_of_birth,
+    i.service_line_code,
+    i.invoice_total_charges,
+    i.ar_status
+FROM invoices i
+JOIN patients p ON i.patient_id = p.patient_id
+WHERE i.invoice_total_charges > 100
+ORDER BY i.invoice_total_charges DESC
+LIMIT 15;`,
+    
+    aggregate: `-- Revenue summary by service line
+SELECT 
+    sl.service_line_name,
+    COUNT(i.invoice_id) as invoice_count,
+    SUM(i.invoice_total_charges) as total_charges,
+    AVG(i.invoice_total_charges) as avg_charges,
+    SUM(i.invoice_total_payments) as total_payments
+FROM invoices i
+JOIN service_lines sl ON i.service_line_code = sl.service_line_code
+GROUP BY sl.service_line_code, sl.service_line_name
+ORDER BY total_charges DESC;`
+};
+
+// Initialize CodeMirror editor
+document.addEventListener('DOMContentLoaded', function() {
+    sqlEditor = CodeMirror.fromTextArea(document.getElementById('sqlEditor'), {
+        mode: 'text/x-sql',
+        theme: 'default',
+        lineNumbers: true,
+        indentWithTabs: true,
+        smartIndent: true,
+        lineWrapping: true,
+        extraKeys: {
+            'Ctrl-Enter': executeQuery,
+            'Cmd-Enter': executeQuery
+        }
+    });
+    
+    sqlEditor.setSize(null, 200);
+});
+
+function loadSampleQuery(type) {
+    if (sqlEditor && sampleQueries[type]) {
+        sqlEditor.setValue(sampleQueries[type]);
+        sqlEditor.focus();
+    }
+}
+
+function executeQuery() {
+    if (!sqlEditor) return;
+    
+    const query = sqlEditor.getValue().trim();
+    if (!query) {
+        showAlert('Please enter a SQL query first.', 'warning');
+        return;
+    }
+    
+    // Show loading state
+    const resultsContainer = document.getElementById('resultsContainer');
+    resultsContainer.innerHTML = `
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Executing query...</p>
+            </div>
+        </div>
+    `;
+    
+    fetch('/api/execute', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query: query })
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayResults(data);
+    })
+    .catch(error => {
+        showAlert('Network error: ' + error.message, 'danger');
+        resultsContainer.innerHTML = '';
+    });
+}
+
+function displayResults(data) {
+    const resultsContainer = document.getElementById('resultsContainer');
+    
+    if (!data.success) {
+        resultsContainer.innerHTML = `
+            <div class="card border-0 shadow-sm border-start border-danger border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                        <h6 class="text-danger mb-0">Query Error</h6>
+                    </div>
+                    <p class="text-muted mb-0">${data.error}</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="card border-0 shadow-sm border-start border-success border-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-check-circle text-success me-2"></i>
+                    <strong>Query Results</strong>
+                    <span class="badge bg-success ms-2">${data.results.length} rows</span>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" onclick="exportResults()">
+                    <i class="fas fa-download me-2"></i>Export CSV
+                </button>
+            </div>
+            <div class="card-body p-0">
+    `;
+    
+    if (data.results.length === 0) {
+        html += `
+            <div class="text-center py-5">
+                <i class="fas fa-search text-muted fa-2x mb-3"></i>
+                <p class="text-muted">No results found.</p>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+        `;
+        
+        data.columns.forEach(col => {
+            html += `<th>${col}</th>`;
+        });
+        
+        html += `
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.results.forEach(row => {
+            html += '<tr>';
+            data.columns.forEach(col => {
+                const value = row[col];
+                html += `<td>${value !== null && value !== undefined ? value : '<span class="text-muted">NULL</span>'}</td>`;
+            });
+            html += '</tr>';
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    resultsContainer.innerHTML = html;
+}
+
+function showSchema() {
+    const modal = new bootstrap.Modal(document.getElementById('schemaModal'));
+    modal.show();
+    
+    fetch('/api/schema')
+        .then(response => response.json())
+        .then(data => {
+            let html = '<div class="row">';
+            
+            const tables = Object.keys(data);
+            tables.forEach((tableName, index) => {
+                const columns = data[tableName];
+                
+                html += `
+                    <div class="col-md-6 mb-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-table me-2"></i>${tableName}
+                                </h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Column</th>
+                                                <th>Type</th>
+                                                <th>Key</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                `;
+                
+                columns.forEach(col => {
+                    html += `
+                        <tr>
+                            <td><code class="text-primary">${col.name}</code></td>
+                            <td><small>${col.type}</small></td>
+                            <td>${col.pk ? '<i class="fas fa-key text-warning" title="Primary Key"></i>' : ''}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="card-footer bg-light">
+                                    <button class="btn btn-outline-primary btn-sm" 
+                                            onclick="loadSampleData('${tableName}')">
+                                        <i class="fas fa-eye me-2"></i>View Sample Data
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Start new row after every 2 tables
+                if ((index + 1) % 2 === 0 && index + 1 < tables.length) {
+                    html += '</div><div class="row">';
+                }
+            });
+            
+            html += '</div>';
+            document.getElementById('schemaContent').innerHTML = html;
+        })
+        .catch(error => {
+            document.getElementById('schemaContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading schema: ${error.message}
+                </div>
+            `;
+        });
+}
+
+function loadSampleData(tableName) {
+    fetch(`/api/sample-data/${tableName}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showAlert('Error loading sample data: ' + data.error, 'danger');
+                return;
+            }
+            
+            // Load a SELECT query for this table
+            const query = `-- Sample data from ${tableName}
+SELECT * FROM ${tableName} LIMIT 10;`;
+            
+            if (sqlEditor) {
+                sqlEditor.setValue(query);
+                sqlEditor.focus();
+            }
+            
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('schemaModal')).hide();
+        })
+        .catch(error => {
+            showAlert('Network error: ' + error.message, 'danger');
+        });
+}
+
+function clearResults() {
+    document.getElementById('resultsContainer').innerHTML = '';
+}
+
+function showAlert(message, type) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertAdjacentHTML('afterbegin', alertHtml);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        const alerts = container.querySelectorAll('.alert');
+        if (alerts.length > 0) {
+            alerts[alerts.length - 1].remove();
+        }
+    }, 5000);
+}
+
+function exportResults() {
+    // This would export the current results to CSV
+    showAlert('Export feature coming soon!', 'info');
+}
+
+function openSchemaWindow() {
+    // Open schema reference in a new window/tab
+    const schemaWindow = window.open(
+        '/schema', 
+        'schemaReference', 
+        'width=800,height=600,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no'
+    );
+    
+    if (schemaWindow) {
+        schemaWindow.focus();
+    } else {
+        // Fallback if popup was blocked
+        showAlert('Please allow popups for schema reference window', 'warning');
+        window.open('/schema', '_blank');
+    }
+}
+</script>
+{% endblock %}

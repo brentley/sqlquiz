@@ -34,15 +34,7 @@ jobs:
         run: |
           echo "Creating minimal test database..."
           # Create a minimal database for testing since CSV files are not in git
-          python3 -c "
-import sqlite3
-conn = sqlite3.connect('healthcare_quiz.db')
-conn.execute('CREATE TABLE patients (patient_id TEXT PRIMARY KEY)')
-conn.execute('INSERT INTO patients VALUES (\"TEST001\")')
-conn.commit()
-conn.close()
-print('Minimal test database created')
-"
+          python3 -c "import sqlite3; conn = sqlite3.connect('healthcare_quiz.db'); conn.execute('CREATE TABLE patients (patient_id TEXT PRIMARY KEY)'); conn.execute('INSERT INTO patients VALUES (\"TEST001\")'); conn.commit(); conn.close(); print('Minimal test database created')"
       
       - name: Test application startup
         run: |

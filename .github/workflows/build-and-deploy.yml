@@ -142,7 +142,7 @@ jobs:
           build-args: |
             GIT_COMMIT=${{ github.sha }}
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
-            VERSION=${{ github.ref_name }}
+            VERSION=1.0.0
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

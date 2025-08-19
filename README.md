@@ -1,6 +1,6 @@
 # SQLQuiz - Healthcare Database Skills Assessment
 
-A professional web-based SQL skills assessment application designed for technical interviews and training. Built with real healthcare invoicing data to provide authentic SQL learning experiences.
+A professional web-based SQL skills assessment application designed for technical interviews and training. Built with pseudo healthcare invoicing data to provide authentic SQL learning experiences.
 
 ## 🎯 Purpose & Use Cases
 
@@ -47,7 +47,7 @@ The application will be available at: http://localhost:5002
 ## 📊 Features
 
 ### 🎓 Practice Mode
-- **Free-form SQL practice** with real healthcare data
+- **Free-form SQL practice** with pseudo healthcare data
 - **SQL editor** with syntax highlighting and auto-completion
 - **Real-time query execution** with results display
 - **Schema browser** to explore table structures and relationships
@@ -311,7 +311,7 @@ The healthcare billing database represents a realistic medical billing scenario:
 - **CPT Codes**: Medical procedure and supply codes for billing
 - **Time Series**: Historical data for trend analysis and reporting
 
-This provides authentic business scenarios for SQL assessment rather than artificial academic examples.
+This provides realistic business scenarios for SQL assessment rather than artificial academic examples.
 
 ## 🔧 Technical Specifications
 
@@ -347,4 +347,4 @@ Contributions welcome! Please feel free to:
 
 ---
 
-**Built with authentic healthcare data for professional SQL skills assessment** 🏥📊💼
+**Built with pseudo healthcare data for professional SQL skills assessment** 🏥📊💼

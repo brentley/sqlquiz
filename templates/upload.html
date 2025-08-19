@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Data Upload - Data Explorer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>Upload Data
+                </h4>
+            </div>
+            <div class="card-body p-4">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' }} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+                {% endwith %}
+                
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 class="mb-3">Upload CSV Data</h5>
+                        <p class="text-muted mb-4">
+                            Upload a ZIP file containing CSV files. Each CSV file will be imported as a separate table 
+                            with the filename as the table name.
+                        </p>
+                        
+                        <form method="POST" enctype="multipart/form-data" class="mb-4">
+                            <div class="mb-3">
+                                <label for="zip_file" class="form-label">
+                                    <i class="fas fa-file-archive me-2"></i>Select ZIP File
+                                </label>
+                                <input type="file" class="form-control" id="zip_file" name="zip_file" 
+                                       accept=".zip" required>
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Maximum file size: 50MB. ZIP file should contain CSV files.
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload me-2"></i>Upload and Import
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="bg-light rounded p-3">
+                            <h6 class="mb-3">
+                                <i class="fas fa-lightbulb text-warning me-2"></i>Import Rules
+                            </h6>
+                            <ul class="list-unstyled small mb-0">
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>1:1 Mapping:</strong> Each CSV = 1 table
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>Auto-detect:</strong> Column types from data
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>Clean names:</strong> Sanitized table/column names
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>Replace mode:</strong> Overwrites existing tables
+                                </li>
+                                <li>
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>Safe import:</strong> Handles missing/null values
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- CSV Format Guide -->
+                <hr class="my-4">
+                
+                <h5 class="mb-3">
+                    <i class="fas fa-file-csv text-success me-2"></i>CSV Format Guidelines
+                </h5>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light border-0">
+                            <div class="card-body">
+                                <h6 class="card-title text-success">
+                                    <i class="fas fa-check-circle me-2"></i>Supported Formats
+                                </h6>
+                                <ul class="list-unstyled mb-0">
+                                    <li><i class="fas fa-dot-circle text-primary me-2"></i>Comma-separated (CSV)</li>
+                                    <li><i class="fas fa-dot-circle text-primary me-2"></i>Tab-separated (TSV)</li>
+                                    <li><i class="fas fa-dot-circle text-primary me-2"></i>Semicolon-separated</li>
+                                    <li><i class="fas fa-dot-circle text-primary me-2"></i>UTF-8 encoding</li>
+                                    <li><i class="fas fa-dot-circle text-primary me-2"></i>Header row required</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card bg-light border-0">
+                            <div class="card-body">
+                                <h6 class="card-title text-info">
+                                    <i class="fas fa-magic me-2"></i>Auto-Processing
+                                </h6>
+                                <ul class="list-unstyled mb-0">
+                                    <li><i class="fas fa-cog text-primary me-2"></i>Column names sanitized</li>
+                                    <li><i class="fas fa-cog text-primary me-2"></i>Data types detected</li>
+                                    <li><i class="fas fa-cog text-primary me-2"></i>NULL values handled</li>
+                                    <li><i class="fas fa-cog text-primary me-2"></i>Table names from filenames</li>
+                                    <li><i class="fas fa-cog text-primary me-2"></i>Error handling included</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Example -->
+                <div class="mt-4">
+                    <h6 class="mb-3">
+                        <i class="fas fa-code text-secondary me-2"></i>Example CSV Structure
+                    </h6>
+                    <div class="bg-dark text-light rounded p-3">
+                        <pre class="mb-0"><code>customers.csv:
+id,name,email,created_date,is_active
+1,"John Doe",john@example.com,2024-01-15,true
+2,"Jane Smith",jane@example.com,2024-01-16,false
+
+orders.csv:
+order_id,customer_id,amount,order_date
+101,1,99.99,2024-01-20
+102,2,149.50,2024-01-21</code></pre>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="fas fa-arrow-right me-1"></i>
+                        Results in tables: <code>customers</code> and <code>orders</code>
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Current Tables -->
+        <div class="card border-0 shadow-sm mt-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-table me-2"></i>Current Tables
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="currentTables">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading tables...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading current tables...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load current tables on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadCurrentTables();
+});
+
+function loadCurrentTables() {
+    fetch('/api/schema')
+        .then(response => response.json())
+        .then(schema => {
+            displayCurrentTables(schema);
+        })
+        .catch(error => {
+            document.getElementById('currentTables').innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Could not load current tables: ${error.message}
+                </div>
+            `;
+        });
+}
+
+function displayCurrentTables(schema) {
+    const container = document.getElementById('currentTables');
+    
+    if (Object.keys(schema).length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-database fa-2x mb-3"></i>
+                <p>No tables in database yet. Upload some CSV files to get started!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="row">';
+    
+    Object.keys(schema).forEach(tableName => {
+        const columns = schema[tableName];
+        html += `
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card bg-light border-0 h-100">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <i class="fas fa-table text-primary me-2"></i>
+                            ${tableName}
+                        </h6>
+                        <small class="text-muted">
+                            <i class="fas fa-columns me-1"></i>
+                            ${columns.length} columns
+                        </small>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+</script>
+{% endblock %}

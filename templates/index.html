@@ -11,26 +11,42 @@
                 <i class="fas fa-database text-primary me-3"></i>Data Explorer
             </h1>
             <p class="lead text-muted">
-                Explore and analyze real healthcare invoicing data with SQL. Discover insights from authentic medical billing records!
+                Explore and analyze pseudo healthcare invoicing data with SQL. Discover insights from realistic medical billing scenarios!
             </p>
         </div>
 
         <!-- Features -->
         <div class="row mb-5">
-            <div class="col-md-12 mb-4">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body text-center p-5">
+            <div class="col-md-6 mb-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
                         <div class="mb-3">
-                            <i class="fas fa-search fa-4x text-primary"></i>
+                            <i class="fas fa-search fa-3x text-primary"></i>
                         </div>
-                        <h5 class="card-title mb-3">Data Explorer</h5>
+                        <h5 class="card-title mb-3">Explore Data</h5>
                         <p class="card-text mb-4">
-                            Dive into authentic healthcare billing data with SQL queries. Analyze patient records, 
-                            invoices, insurance claims, and medical procedures. Discover patterns, trends, and insights 
-                            from real-world medical billing scenarios.
+                            Dive into pseudo healthcare billing data with SQL queries. Analyze patient records, 
+                            invoices, insurance claims, and medical procedures with realistic scenarios.
                         </p>
-                        <a href="{{ url_for('data_explorer') }}" class="btn btn-primary btn-lg">
+                        <a href="{{ url_for('data_explorer') }}" class="btn btn-primary">
                             <i class="fas fa-search me-2"></i>Start Exploring
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 mb-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-3">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-success"></i>
+                        </div>
+                        <h5 class="card-title mb-3">Upload Your Data</h5>
+                        <p class="card-text mb-4">
+                            Import your own CSV files for analysis. Upload ZIP files containing CSV data 
+                            and they'll be automatically converted to database tables.
+                        </p>
+                        <a href="{{ url_for('data_upload') }}" class="btn btn-success">
+                            <i class="fas fa-cloud-upload-alt me-2"></i>Upload Data
                         </a>
                     </div>
                 </div>
@@ -46,7 +62,7 @@
             </div>
             <div class="card-body">
                 <p class="text-muted mb-3">
-                    This database contains real healthcare invoicing data with the following structure:
+                    This database contains pseudo healthcare invoicing data with the following structure:
                 </p>
                 
                 <div class="row">

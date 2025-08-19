@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}SQLQuiz - Home{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Hero Section -->
+        <div class="text-center mb-5">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-database text-primary me-3"></i>SQLQuiz
+            </h1>
+            <p class="lead text-muted">
+                Master SQL with real healthcare invoicing data. Practice queries and test your skills!
+            </p>
+        </div>
+
+        <!-- Features -->
+        <div class="row mb-5">
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-3">
+                            <i class="fas fa-code fa-3x text-success"></i>
+                        </div>
+                        <h5 class="card-title">Practice Mode</h5>
+                        <p class="card-text">
+                            Write and execute SQL queries freely. Explore the healthcare database 
+                            with guided examples and real-time results.
+                        </p>
+                        <a href="{{ url_for('practice') }}" class="btn btn-success">
+                            <i class="fas fa-play me-2"></i>Start Practicing
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-3">
+                            <i class="fas fa-clipboard-list fa-3x text-warning"></i>
+                        </div>
+                        <h5 class="card-title">Quiz Mode</h5>
+                        <p class="card-text">
+                            Test your SQL knowledge with structured questions. Get instant 
+                            feedback and track your progress through different difficulty levels.
+                        </p>
+                        <a href="{{ url_for('quiz') }}" class="btn btn-warning">
+                            <i class="fas fa-brain me-2"></i>Take Quiz
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Overview -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-table me-2"></i>Database Overview
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">
+                    This database contains real healthcare invoicing data with the following structure:
+                </p>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-users text-primary me-2"></i>Core Tables:</h6>
+                        <ul class="list-unstyled ms-3">
+                            <li><code>patients</code> - Patient information</li>
+                            <li><code>invoices</code> - Invoice headers</li>
+                            <li><code>invoice_details</code> - Invoice line items</li>
+                            <li><code>insurance_plans</code> - Insurance plan data</li>
+                            <li><code>service_lines</code> - Service categories</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-chart-line text-success me-2"></i>Key Metrics:</h6>
+                        <ul class="list-unstyled ms-3">
+                            <li>Financial amounts and balances</li>
+                            <li>Service dates and billing cycles</li>
+                            <li>Insurance coverage details</li>
+                            <li>Payment and adjustment tracking</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <button class="btn btn-outline-primary btn-sm" onclick="loadSchema()">
+                        <i class="fas fa-eye me-2"></i>View Full Schema
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Queries -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>Sample Queries to Get Started
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Basic Queries:</h6>
+                        <ul class="list-unstyled">
+                            <li><code class="text-primary">SELECT COUNT(*) FROM patients;</code></li>
+                            <li><code class="text-primary">SELECT DISTINCT ar_status FROM invoices;</code></li>
+                            <li><code class="text-primary">SELECT * FROM service_lines;</code></li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Advanced Queries:</h6>
+                        <ul class="list-unstyled">
+                            <li><code class="text-primary">SELECT service_line_code, SUM(invoice_total_charges) FROM invoices GROUP BY service_line_code;</code></li>
+                            <li><code class="text-primary">SELECT i.*, p.date_of_birth FROM invoices i JOIN patients p ON i.patient_id = p.patient_id;</code></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Schema Modal -->
+<div class="modal fade" id="schemaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Database Schema</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="schemaContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading schema...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadSchema() {
+    const modal = new bootstrap.Modal(document.getElementById('schemaModal'));
+    modal.show();
+    
+    fetch('/api/schema')
+        .then(response => response.json())
+        .then(data => {
+            let html = '';
+            for (const [tableName, columns] of Object.entries(data)) {
+                html += `
+                    <div class="mb-4">
+                        <h6 class="text-primary"><i class="fas fa-table me-2"></i>${tableName}</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Column</th>
+                                        <th>Type</th>
+                                        <th>Key</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                columns.forEach(col => {
+                    html += `
+                        <tr>
+                            <td><code>${col.name}</code></td>
+                            <td>${col.type}</td>
+                            <td>${col.pk ? '<i class="fas fa-key text-warning" title="Primary Key"></i>' : ''}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('schemaContent').innerHTML = html;
+        })
+        .catch(error => {
+            document.getElementById('schemaContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading schema: ${error.message}
+                </div>
+            `;
+        });
+}
+</script>
+{% endblock %}

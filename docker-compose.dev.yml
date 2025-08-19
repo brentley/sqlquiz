@@ -1,0 +1,36 @@
+services:
+  sqlquiz-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - GIT_COMMIT=${GIT_COMMIT:-dev}
+        - BUILD_DATE=${BUILD_DATE:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}
+        - VERSION=${VERSION:-dev}
+    container_name: sqlquiz-dev
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - FLASK_SECRET_KEY=dev-secret-key-change-in-production
+    ports:
+      - "5001:5000"
+    volumes:
+      - .:/app
+      - sqlquiz_dev_data:/app/data
+    networks:
+      - sqlquiz_dev_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  sqlquiz_dev_network:
+    driver: bridge
+
+volumes:
+  sqlquiz_dev_data:
+    driver: local

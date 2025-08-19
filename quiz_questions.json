@@ -1,0 +1,152 @@
+[
+  {
+    "id": 1,
+    "title": "Basic Patient Count",
+    "description": "Find the total number of unique patients in the system.",
+    "expected_query": "SELECT COUNT(DISTINCT patient_id) as patient_count FROM patients",
+    "hint": "Use COUNT() with DISTINCT to count unique patients.",
+    "difficulty": "Easy",
+    "category": "Basic Queries",
+    "points": 10
+  },
+  {
+    "id": 2,
+    "title": "Invoice Status Summary",
+    "description": "Show the count of invoices by AR status, ordered by count (highest first).",
+    "expected_query": "SELECT ar_status, COUNT(*) as invoice_count FROM invoices GROUP BY ar_status ORDER BY invoice_count DESC",
+    "hint": "Use GROUP BY with COUNT() to summarize by status.",
+    "difficulty": "Easy",
+    "category": "Aggregation",
+    "points": 10
+  },
+  {
+    "id": 3,
+    "title": "Service Line Overview",
+    "description": "List all service lines with their names, showing the code and description.",
+    "expected_query": "SELECT service_line_code, service_line_name FROM service_lines ORDER BY service_line_name",
+    "hint": "Simple SELECT from the service_lines table.",
+    "difficulty": "Easy",
+    "category": "Basic Queries",
+    "points": 10
+  },
+  {
+    "id": 4,
+    "title": "High Value Invoices",
+    "description": "Find invoices with total charges greater than $1000, showing invoice ID, patient ID, and total charges. Order by charges (highest first).",
+    "expected_query": "SELECT invoice_id, patient_id, invoice_total_charges FROM invoices WHERE invoice_total_charges > 1000 ORDER BY invoice_total_charges DESC",
+    "hint": "Use WHERE clause to filter by charge amount.",
+    "difficulty": "Easy",
+    "category": "Filtering",
+    "points": 15
+  },
+  {
+    "id": 5,
+    "title": "Patient Demographics",
+    "description": "Show patients born before 1960, including their patient ID, date of birth, and billing office. Order by date of birth.",
+    "expected_query": "SELECT patient_id, date_of_birth, billing_office FROM patients WHERE date_of_birth < '1960-01-01' ORDER BY date_of_birth",
+    "hint": "Use WHERE with date comparison and ORDER BY.",
+    "difficulty": "Easy",
+    "category": "Filtering",
+    "points": 15
+  },
+  {
+    "id": 6,
+    "title": "Service Line Revenue",
+    "description": "Calculate total revenue by service line, showing service line name and total charges, ordered from highest to lowest.",
+    "expected_query": "SELECT sl.service_line_name, SUM(i.invoice_total_charges) as total_revenue FROM invoices i JOIN service_lines sl ON i.service_line_code = sl.service_line_code WHERE i.invoice_total_charges IS NOT NULL GROUP BY sl.service_line_code, sl.service_line_name ORDER BY total_revenue DESC",
+    "hint": "JOIN invoices with service_lines and use SUM() with GROUP BY.",
+    "difficulty": "Medium",
+    "category": "Joins",
+    "points": 20
+  },
+  {
+    "id": 7,
+    "title": "Monthly Revenue Trend",
+    "description": "Show total charges by month for 2025, displaying the month and total charges. Order chronologically.",
+    "expected_query": "SELECT strftime('%Y-%m', service_start_date) as month, SUM(invoice_total_charges) as monthly_charges FROM invoices WHERE service_start_date >= '2025-01-01' AND service_start_date < '2026-01-01' AND invoice_total_charges IS NOT NULL GROUP BY strftime('%Y-%m', service_start_date) ORDER BY month",
+    "hint": "Use strftime() to extract year-month and GROUP BY that value.",
+    "difficulty": "Medium",
+    "category": "Date Functions",
+    "points": 25
+  },
+  {
+    "id": 8,
+    "title": "Patient Invoice Summary",
+    "description": "For each patient, show their patient ID, total number of invoices, and total charges. Include only patients with more than 2 invoices. Order by total charges (highest first).",
+    "expected_query": "SELECT patient_id, COUNT(*) as invoice_count, SUM(invoice_total_charges) as total_charges FROM invoices WHERE invoice_total_charges IS NOT NULL GROUP BY patient_id HAVING COUNT(*) > 2 ORDER BY total_charges DESC",
+    "hint": "Use GROUP BY with HAVING to filter grouped results.",
+    "difficulty": "Medium",
+    "category": "Aggregation",
+    "points": 25
+  },
+  {
+    "id": 9,
+    "title": "Insurance Plan Analysis",
+    "description": "Find the top 5 insurance plans by total charges, showing plan description, payor name, and total charges.",
+    "expected_query": "SELECT ip.plan_description, ip.payor_name, SUM(i.invoice_total_charges) as total_charges FROM invoices i JOIN insurance_plans ip ON i.current_plan_code = ip.plan_code WHERE i.invoice_total_charges IS NOT NULL GROUP BY ip.plan_code, ip.plan_description, ip.payor_name ORDER BY total_charges DESC LIMIT 5",
+    "hint": "JOIN with insurance_plans, GROUP BY plan details, and use LIMIT 5.",
+    "difficulty": "Medium",
+    "category": "Joins",
+    "points": 25
+  },
+  {
+    "id": 10,
+    "title": "Average Invoice Value by Billing Center",
+    "description": "Calculate the average invoice value for each billing center, showing billing center and average charges. Round to 2 decimal places and order by average (highest first).",
+    "expected_query": "SELECT billing_center, ROUND(AVG(invoice_total_charges), 2) as avg_charges FROM invoices WHERE invoice_total_charges IS NOT NULL GROUP BY billing_center ORDER BY avg_charges DESC",
+    "hint": "Use AVG() function with ROUND() to format the result.",
+    "difficulty": "Medium",
+    "category": "Aggregation",
+    "points": 20
+  },
+  {
+    "id": 11,
+    "title": "Payment Collection Rate",
+    "description": "For each service line, calculate the payment collection rate as a percentage (total payments / total charges * 100). Show service line name, total charges, total payments, and collection rate rounded to 1 decimal place. Order by collection rate (highest first).",
+    "expected_query": "SELECT sl.service_line_name, SUM(i.invoice_total_charges) as total_charges, SUM(i.invoice_total_payments) as total_payments, ROUND((SUM(i.invoice_total_payments) * 100.0 / SUM(i.invoice_total_charges)), 1) as collection_rate_percent FROM invoices i JOIN service_lines sl ON i.service_line_code = sl.service_line_code WHERE i.invoice_total_charges > 0 GROUP BY sl.service_line_code, sl.service_line_name ORDER BY collection_rate_percent DESC",
+    "hint": "Calculate percentage: (payments / charges) * 100. Use 100.0 to ensure decimal division.",
+    "difficulty": "Hard",
+    "category": "Advanced Calculations",
+    "points": 35
+  },
+  {
+    "id": 12,
+    "title": "Outstanding Balance Analysis",
+    "description": "Find patients with outstanding balances greater than $500, showing patient ID, date of birth, total outstanding balance, and number of open invoices. Order by outstanding balance (highest first).",
+    "expected_query": "SELECT p.patient_id, p.date_of_birth, SUM(i.invoice_total_balance) as outstanding_balance, COUNT(*) as open_invoices FROM patients p JOIN invoices i ON p.patient_id = i.patient_id WHERE i.ar_status = 'Open' AND i.invoice_total_balance > 0 GROUP BY p.patient_id, p.date_of_birth HAVING SUM(i.invoice_total_balance) > 500 ORDER BY outstanding_balance DESC",
+    "hint": "JOIN patients with invoices, filter for Open status, GROUP BY patient, use HAVING for aggregate filter.",
+    "difficulty": "Hard",
+    "category": "Complex Joins",
+    "points": 35
+  },
+  {
+    "id": 13,
+    "title": "CPT Code Utilization",
+    "description": "Find the top 10 most frequently used CPT codes, showing CPT code, count of usage, and total charges for that code. Order by usage count (highest first).",
+    "expected_query": "SELECT cpt_code, COUNT(*) as usage_count, SUM(invoice_total_charges) as total_charges FROM invoice_details WHERE cpt_code IS NOT NULL GROUP BY cpt_code ORDER BY usage_count DESC LIMIT 10",
+    "hint": "Query invoice_details table, GROUP BY cpt_code, and use LIMIT 10.",
+    "difficulty": "Medium",
+    "category": "Healthcare Analytics",
+    "points": 25
+  },
+  {
+    "id": 14,
+    "title": "Billing Efficiency by Office",
+    "description": "Calculate the average days between service date and first bill date for each billing office. Show billing office, average days (rounded to 1 decimal), and count of invoices. Order by average days (shortest first).",
+    "expected_query": "SELECT billing_office, ROUND(AVG(JULIANDAY(first_bill_date) - JULIANDAY(service_start_date)), 1) as avg_days_to_bill, COUNT(*) as invoice_count FROM invoices WHERE service_start_date IS NOT NULL AND first_bill_date IS NOT NULL GROUP BY billing_office ORDER BY avg_days_to_bill ASC",
+    "hint": "Use JULIANDAY() to calculate date differences, then AVG() and ROUND().",
+    "difficulty": "Hard",
+    "category": "Date Calculations",
+    "points": 40
+  },
+  {
+    "id": 15,
+    "title": "Complex Financial Analysis",
+    "description": "Create a financial summary showing: service line name, total invoices, total charges, total payments, total adjustments, net collectible amount (charges - adjustments), and collection rate percentage. Only include service lines with more than 100 invoices. Order by net collectible amount (highest first).",
+    "expected_query": "SELECT sl.service_line_name, COUNT(i.invoice_id) as total_invoices, SUM(i.invoice_total_charges) as total_charges, SUM(i.invoice_total_payments) as total_payments, SUM(i.invoice_total_adjustments) as total_adjustments, (SUM(i.invoice_total_charges) - SUM(i.invoice_total_adjustments)) as net_collectible, ROUND((SUM(i.invoice_total_payments) * 100.0 / (SUM(i.invoice_total_charges) - SUM(i.invoice_total_adjustments))), 2) as collection_rate_percent FROM invoices i JOIN service_lines sl ON i.service_line_code = sl.service_line_code WHERE i.invoice_total_charges IS NOT NULL GROUP BY sl.service_line_code, sl.service_line_name HAVING COUNT(i.invoice_id) > 100 ORDER BY net_collectible DESC",
+    "hint": "Calculate net collectible as charges minus adjustments, then collection rate on net amount.",
+    "difficulty": "Hard",
+    "category": "Advanced Analytics",
+    "points": 45
+  }
+]

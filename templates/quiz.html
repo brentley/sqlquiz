@@ -1,0 +1,704 @@
+{% extends "base.html" %}
+
+{% block title %}SQLQuiz - Quiz Mode{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-3">
+        <!-- Quiz Sidebar -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0">
+                    <i class="fas fa-clipboard-list me-2"></i>Quiz Progress
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="progressInfo">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-hourglass-start fa-2x mb-3"></i>
+                        <p>Click "Start Quiz" to begin!</p>
+                    </div>
+                </div>
+                
+                <div id="progressBar" class="progress mb-3" style="display: none;">
+                    <div class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
+                </div>
+                
+                <div id="quizControls" style="display: none;">
+                    <button class="btn btn-outline-warning btn-sm w-100 mb-2" onclick="previousQuestion()" id="prevBtn" disabled>
+                        <i class="fas fa-arrow-left me-2"></i>Previous
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm w-100 mb-2" onclick="nextQuestion()" id="nextBtn" disabled>
+                        <i class="fas fa-arrow-right me-2"></i>Next
+                    </button>
+                    <button class="btn btn-outline-info btn-sm w-100 mb-2" onclick="showHint()" id="hintBtn">
+                        <i class="fas fa-lightbulb me-2"></i>Show Hint
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm w-100" onclick="showQuizSchema()">
+                        <i class="fas fa-table me-2"></i>View Schema
+                    </button>
+                </div>
+                
+                <div id="startQuizBtn">
+                    <button class="btn btn-warning w-100" onclick="startQuiz()">
+                        <i class="fas fa-play me-2"></i>Start Quiz
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Card -->
+        <div class="card border-0 shadow-sm" id="scoreCard" style="display: none;">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-star me-2"></i>Your Score
+                </h6>
+            </div>
+            <div class="card-body text-center">
+                <h2 class="text-success mb-2" id="scoreDisplay">0/0</h2>
+                <p class="text-muted mb-0" id="scorePercentage">0%</p>
+                
+                <div class="mt-3">
+                    <button class="btn btn-success btn-sm w-100 mb-2" onclick="restartQuiz()">
+                        <i class="fas fa-redo me-2"></i>Restart Quiz
+                    </button>
+                    <a href="{{ url_for('practice') }}" class="btn btn-outline-success btn-sm w-100">
+                        <i class="fas fa-code me-2"></i>Practice More
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-9">
+        <!-- Welcome Screen -->
+        <div id="welcomeScreen">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-brain fa-4x text-warning mb-4"></i>
+                    <h2 class="mb-3">SQL Skills Quiz</h2>
+                    <p class="lead text-muted mb-4">
+                        Test your SQL knowledge with real healthcare database scenarios. 
+                        Answer questions ranging from basic queries to complex joins and aggregations.
+                    </p>
+                    
+                    <div class="row justify-content-center mb-4">
+                        <div class="col-md-8">
+                            <div class="row">
+                                <div class="col-4 text-center">
+                                    <div class="bg-light rounded p-3 mb-2">
+                                        <i class="fas fa-star text-success fa-2x"></i>
+                                    </div>
+                                    <small class="text-muted">Easy</small>
+                                </div>
+                                <div class="col-4 text-center">
+                                    <div class="bg-light rounded p-3 mb-2">
+                                        <i class="fas fa-star-half-alt text-warning fa-2x"></i>
+                                    </div>
+                                    <small class="text-muted">Medium</small>
+                                </div>
+                                <div class="col-4 text-center">
+                                    <div class="bg-light rounded p-3 mb-2">
+                                        <i class="fas fa-fire text-danger fa-2x"></i>
+                                    </div>
+                                    <small class="text-muted">Hard</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-warning btn-lg" onclick="startQuiz()">
+                        <i class="fas fa-play me-2"></i>Start Quiz Now
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Question Area -->
+        <div id="quizArea" style="display: none;">
+            <!-- Question Card -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0" id="questionTitle">Question Title</h6>
+                            <small class="text-muted" id="questionMeta">Question 1 of 15 • Easy • Basic Queries</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-secondary" id="difficultyBadge">Easy</span>
+                            <span class="badge bg-primary ms-1" id="pointsBadge">10 pts</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p id="questionDescription">Question description will appear here...</p>
+                    
+                    <div id="hintArea" class="alert alert-info" style="display: none;">
+                        <div class="d-flex align-items-start">
+                            <i class="fas fa-lightbulb text-info me-2 mt-1"></i>
+                            <div>
+                                <strong>Hint:</strong>
+                                <span id="hintText"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SQL Editor -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-code me-2"></i>Your SQL Query
+                    </h6>
+                    <div>
+                        <button class="btn btn-primary btn-sm" onclick="checkAnswer()">
+                            <i class="fas fa-check me-2"></i>Check Answer
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <textarea id="quizSqlEditor" class="form-control border-0" 
+                              placeholder="Enter your SQL query here...">SELECT </textarea>
+                </div>
+            </div>
+
+            <!-- Answer Feedback -->
+            <div id="answerFeedback" style="display: none;"></div>
+
+            <!-- Query Results -->
+            <div id="queryResults"></div>
+        </div>
+
+        <!-- Schema Modal for Quiz Mode -->
+        <div class="modal fade" id="quizSchemaModal" tabindex="-1" aria-labelledby="quizSchemaModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="quizSchemaModalLabel">
+                            <i class="fas fa-table me-2"></i>Database Schema
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="quizSchemaContent">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading schema...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Loading database schema...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quiz Complete Screen -->
+        <div id="completeScreen" style="display: none;">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-trophy fa-4x text-warning mb-4"></i>
+                    <h2 class="mb-3">Quiz Complete!</h2>
+                    <p class="lead text-muted mb-4" id="finalScoreText">
+                        Great job! You've completed the SQL quiz.
+                    </p>
+                    
+                    <div class="row justify-content-center mb-4">
+                        <div class="col-md-6">
+                            <div id="finalScoreCard" class="bg-light rounded p-4">
+                                <h3 class="text-success mb-2" id="finalScore">0/0</h3>
+                                <p class="text-muted mb-0" id="finalPercentage">0%</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button class="btn btn-warning" onclick="restartQuiz()">
+                            <i class="fas fa-redo me-2"></i>Retry Quiz
+                        </button>
+                        <a href="{{ url_for('practice') }}" class="btn btn-success">
+                            <i class="fas fa-code me-2"></i>Practice Mode
+                        </a>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-home me-2"></i>Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let quizSqlEditor;
+let questions = [];
+let currentQuestion = 0;
+let score = 0;
+let userAnswers = [];
+
+// Initialize CodeMirror editor
+document.addEventListener('DOMContentLoaded', function() {
+    quizSqlEditor = CodeMirror.fromTextArea(document.getElementById('quizSqlEditor'), {
+        mode: 'text/x-sql',
+        theme: 'default',
+        lineNumbers: true,
+        indentWithTabs: true,
+        smartIndent: true,
+        lineWrapping: true,
+        extraKeys: {
+            'Ctrl-Enter': checkAnswer,
+            'Cmd-Enter': checkAnswer
+        }
+    });
+    
+    quizSqlEditor.setSize(null, 150);
+});
+
+function startQuiz() {
+    // Hide welcome screen
+    document.getElementById('welcomeScreen').style.display = 'none';
+    document.getElementById('startQuizBtn').style.display = 'none';
+    
+    // Show quiz controls
+    document.getElementById('quizControls').style.display = 'block';
+    document.getElementById('progressBar').style.display = 'block';
+    document.getElementById('quizArea').style.display = 'block';
+    
+    // Reset quiz state
+    currentQuestion = 0;
+    score = 0;
+    userAnswers = [];
+    
+    // Load questions
+    fetch('/api/quiz/questions')
+        .then(response => response.json())
+        .then(data => {
+            questions = data;
+            displayQuestion();
+            updateProgress();
+        })
+        .catch(error => {
+            showAlert('Error loading quiz questions: ' + error.message, 'danger');
+        });
+}
+
+function displayQuestion() {
+    if (!questions || questions.length === 0) return;
+    
+    const question = questions[currentQuestion];
+    
+    document.getElementById('questionTitle').textContent = question.title;
+    document.getElementById('questionMeta').textContent = 
+        `Question ${currentQuestion + 1} of ${questions.length} • ${question.difficulty} • ${question.category}`;
+    document.getElementById('questionDescription').textContent = question.description;
+    document.getElementById('difficultyBadge').textContent = question.difficulty;
+    document.getElementById('difficultyBadge').className = 
+        `badge ${getDifficultyColor(question.difficulty)}`;
+    document.getElementById('pointsBadge').textContent = `${question.points} pts`;
+    
+    // Set hint
+    document.getElementById('hintText').textContent = question.hint;
+    document.getElementById('hintArea').style.display = 'none';
+    
+    // Clear previous answer
+    if (quizSqlEditor) {
+        const previousAnswer = userAnswers[currentQuestion];
+        quizSqlEditor.setValue(previousAnswer || 'SELECT ');
+    }
+    
+    // Update buttons
+    document.getElementById('prevBtn').disabled = currentQuestion === 0;
+    document.getElementById('nextBtn').disabled = currentQuestion === questions.length - 1;
+    
+    // Clear previous feedback and results
+    document.getElementById('answerFeedback').style.display = 'none';
+    document.getElementById('queryResults').innerHTML = '';
+}
+
+function getDifficultyColor(difficulty) {
+    switch (difficulty.toLowerCase()) {
+        case 'easy': return 'bg-success';
+        case 'medium': return 'bg-warning';
+        case 'hard': return 'bg-danger';
+        default: return 'bg-secondary';
+    }
+}
+
+function showHint() {
+    const hintArea = document.getElementById('hintArea');
+    hintArea.style.display = hintArea.style.display === 'none' ? 'block' : 'none';
+}
+
+function previousQuestion() {
+    if (currentQuestion > 0) {
+        saveCurrentAnswer();
+        currentQuestion--;
+        displayQuestion();
+        updateProgress();
+    }
+}
+
+function nextQuestion() {
+    if (currentQuestion < questions.length - 1) {
+        saveCurrentAnswer();
+        currentQuestion++;
+        displayQuestion();
+        updateProgress();
+    }
+}
+
+function saveCurrentAnswer() {
+    if (quizSqlEditor) {
+        userAnswers[currentQuestion] = quizSqlEditor.getValue();
+    }
+}
+
+function updateProgress() {
+    const progress = ((currentQuestion + 1) / questions.length) * 100;
+    const progressBar = document.querySelector('.progress-bar');
+    progressBar.style.width = progress + '%';
+    
+    const answered = userAnswers.filter(a => a && a.trim()).length;
+    document.getElementById('progressInfo').innerHTML = `
+        <div class="text-center">
+            <div class="mb-2">
+                <strong>Question ${currentQuestion + 1}</strong> of ${questions.length}
+            </div>
+            <small class="text-muted">${answered} answered</small>
+        </div>
+    `;
+}
+
+function checkAnswer() {
+    if (!quizSqlEditor || !questions[currentQuestion]) return;
+    
+    const userQuery = quizSqlEditor.getValue().trim();
+    if (!userQuery) {
+        showAlert('Please enter a SQL query first.', 'warning');
+        return;
+    }
+    
+    // Save current answer
+    userAnswers[currentQuestion] = userQuery;
+    
+    const question = questions[currentQuestion];
+    
+    fetch('/api/quiz/check', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            query: userQuery,
+            expected_query: question.expected_query
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayAnswerFeedback(data);
+        
+        // Update score if correct
+        if (data.correct && !userAnswers[currentQuestion + '_checked']) {
+            score += question.points;
+            userAnswers[currentQuestion + '_checked'] = true;
+        }
+        
+        // Execute query to show results
+        executeQuizQuery(userQuery);
+        
+        // Check if quiz is complete
+        if (currentQuestion === questions.length - 1) {
+            setTimeout(() => {
+                completeQuiz();
+            }, 2000);
+        }
+    })
+    .catch(error => {
+        showAlert('Error checking answer: ' + error.message, 'danger');
+    });
+}
+
+function displayAnswerFeedback(result) {
+    const feedbackDiv = document.getElementById('answerFeedback');
+    
+    const alertClass = result.correct ? 'alert-success' : 'alert-danger';
+    const icon = result.correct ? 'fa-check-circle' : 'fa-times-circle';
+    const title = result.correct ? 'Correct!' : 'Incorrect';
+    
+    feedbackDiv.innerHTML = `
+        <div class="alert ${alertClass}">
+            <div class="d-flex align-items-start">
+                <i class="fas ${icon} me-2 mt-1"></i>
+                <div>
+                    <strong>${title}</strong>
+                    <p class="mb-0 mt-1">${result.message}</p>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    feedbackDiv.style.display = 'block';
+}
+
+function executeQuizQuery(query) {
+    fetch('/api/execute', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query: query })
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayQuizResults(data);
+    })
+    .catch(error => {
+        console.error('Error executing quiz query:', error);
+    });
+}
+
+function displayQuizResults(data) {
+    const resultsContainer = document.getElementById('queryResults');
+    
+    if (!data.success) {
+        resultsContainer.innerHTML = `
+            <div class="card border-0 shadow-sm border-start border-danger border-4">
+                <div class="card-body">
+                    <h6 class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Query Error</h6>
+                    <p class="text-muted mb-0">${data.error}</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h6 class="mb-0">
+                    <i class="fas fa-table me-2"></i>Query Results 
+                    <span class="badge bg-secondary ms-2">${data.results.length} rows</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+    `;
+    
+    if (data.results.length === 0) {
+        html += `
+            <div class="text-center py-4">
+                <i class="fas fa-search text-muted fa-2x mb-3"></i>
+                <p class="text-muted">No results found.</p>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+        `;
+        
+        data.columns.forEach(col => {
+            html += `<th class="text-nowrap">${col}</th>`;
+        });
+        
+        html += `
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        // Limit to first 20 rows for display
+        const displayRows = data.results.slice(0, 20);
+        displayRows.forEach(row => {
+            html += '<tr>';
+            data.columns.forEach(col => {
+                const value = row[col];
+                html += `<td class="text-nowrap">${value !== null && value !== undefined ? value : '<span class="text-muted">NULL</span>'}</td>`;
+            });
+            html += '</tr>';
+        });
+        
+        if (data.results.length > 20) {
+            html += `
+                <tr>
+                    <td colspan="${data.columns.length}" class="text-center text-muted py-3">
+                        ... and ${data.results.length - 20} more rows
+                    </td>
+                </tr>
+            `;
+        }
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    resultsContainer.innerHTML = html;
+}
+
+function completeQuiz() {
+    // Hide quiz area
+    document.getElementById('quizArea').style.display = 'none';
+    document.getElementById('quizControls').style.display = 'none';
+    document.getElementById('progressBar').style.display = 'none';
+    
+    // Show completion screen
+    document.getElementById('completeScreen').style.display = 'block';
+    document.getElementById('scoreCard').style.display = 'block';
+    
+    // Calculate total possible points
+    const totalPossiblePoints = questions.reduce((total, q) => total + q.points, 0);
+    const percentage = Math.round((score / totalPossiblePoints) * 100);
+    
+    document.getElementById('scoreDisplay').textContent = `${score}/${totalPossiblePoints}`;
+    document.getElementById('scorePercentage').textContent = `${percentage}%`;
+    document.getElementById('finalScore').textContent = `${score}/${totalPossiblePoints}`;
+    document.getElementById('finalPercentage').textContent = `${percentage}%`;
+    
+    // Update final score text
+    let scoreText = '';
+    if (percentage >= 90) {
+        scoreText = 'Excellent! You have mastered SQL queries.';
+    } else if (percentage >= 70) {
+        scoreText = 'Great job! You have a solid understanding of SQL.';
+    } else if (percentage >= 50) {
+        scoreText = 'Good effort! Keep practicing to improve your SQL skills.';
+    } else {
+        scoreText = 'Keep learning! Practice more to strengthen your SQL foundation.';
+    }
+    
+    document.getElementById('finalScoreText').textContent = scoreText;
+    
+    // Update progress info
+    document.getElementById('progressInfo').innerHTML = `
+        <div class="text-center">
+            <h5 class="text-success mb-1">${score}/${totalPossiblePoints}</h5>
+            <small class="text-muted">Final Score: ${percentage}%</small>
+        </div>
+    `;
+}
+
+function restartQuiz() {
+    // Reset all screens
+    document.getElementById('completeScreen').style.display = 'none';
+    document.getElementById('scoreCard').style.display = 'none';
+    document.getElementById('welcomeScreen').style.display = 'block';
+    document.getElementById('startQuizBtn').style.display = 'block';
+    
+    // Reset state
+    currentQuestion = 0;
+    score = 0;
+    userAnswers = [];
+    questions = [];
+}
+
+function showAlert(message, type) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertAdjacentHTML('afterbegin', alertHtml);
+    
+    setTimeout(() => {
+        const alerts = container.querySelectorAll('.alert');
+        if (alerts.length > 0) {
+            alerts[alerts.length - 1].remove();
+        }
+    }, 5000);
+}
+
+function showQuizSchema() {
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('quizSchemaModal'));
+    modal.show();
+    
+    // Load schema data
+    fetch('/api/schema')
+        .then(response => response.json())
+        .then(schema => {
+            displayQuizSchema(schema);
+        })
+        .catch(error => {
+            document.getElementById('quizSchemaContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error loading schema: ${error.message}
+                </div>
+            `;
+        });
+}
+
+function displayQuizSchema(schema) {
+    let html = '';
+    
+    Object.keys(schema).forEach(tableName => {
+        const columns = schema[tableName];
+        
+        html += `
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-table me-2 text-primary"></i>
+                        <strong>${tableName}</strong>
+                        <span class="badge bg-secondary ms-2">${columns.length} columns</span>
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="text-nowrap">Column</th>
+                                    <th class="text-nowrap">Type</th>
+                                    <th class="text-nowrap">Constraints</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+        `;
+        
+        columns.forEach(column => {
+            const constraints = [];
+            if (column.pk) constraints.push('<span class="badge bg-warning text-dark">PK</span>');
+            if (column.notnull) constraints.push('<span class="badge bg-info">NOT NULL</span>');
+            
+            html += `
+                <tr>
+                    <td class="text-nowrap">
+                        <code>${column.name}</code>
+                    </td>
+                    <td class="text-nowrap">
+                        <span class="text-muted">${column.type}</span>
+                    </td>
+                    <td>${constraints.join(' ')}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    document.getElementById('quizSchemaContent').innerHTML = html;
+}
+</script>
+{% endblock %}

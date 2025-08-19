@@ -1,0 +1,32 @@
+services:
+  sqlquiz-test:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - GIT_COMMIT=${GIT_COMMIT:-test}
+        - BUILD_DATE=${BUILD_DATE:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}
+        - VERSION=${VERSION:-test}
+    container_name: sqlquiz-test
+    environment:
+      - FLASK_ENV=testing
+      - FLASK_SECRET_KEY=test-secret-key
+    volumes:
+      - .:/app
+    networks:
+      - sqlquiz_test_network
+    command: >
+      sh -c "
+        echo 'Starting SQLQuiz test suite...' &&
+        python3 -m pytest tests/ -v --tb=short &&
+        echo 'Testing health endpoint...' &&
+        python3 -c 'import requests; r = requests.get(\"http://localhost:5000/health\"); print(f\"Health check: {r.status_code} - {r.json()}\")' &&
+        echo 'Testing basic API endpoints...' &&
+        python3 -c 'import requests; r = requests.get(\"http://localhost:5000/api/schema\"); print(f\"Schema API: {r.status_code}\")' &&
+        python3 -c 'import requests; r = requests.get(\"http://localhost:5000/api/quiz/questions\"); print(f\"Quiz API: {r.status_code}\")' &&
+        echo 'All tests completed successfully!'
+      "
+
+networks:
+  sqlquiz_test_network:
+    driver: bridge

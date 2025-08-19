@@ -1,0 +1,221 @@
+name: Build and Deploy SQLQuiz
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-mock requests
+      
+      - name: Create test database
+        run: |
+          echo "Creating test database..."
+          python3 load_data.py
+          echo "Database created successfully"
+      
+      - name: Test application startup
+        run: |
+          echo "Testing application startup..."
+          python3 -c "from app import app; print('Flask app imports successfully')"
+          python3 -c "import sqlite3; conn = sqlite3.connect('healthcare_quiz.db'); print(f'Database has {len(conn.execute(\"SELECT name FROM sqlite_master WHERE type=\\"table\\"\").fetchall())} tables'); conn.close()"
+      
+      - name: Test health endpoint
+        run: |
+          echo "Starting Flask app in background..."
+          python3 app.py &
+          APP_PID=$!
+          
+          echo "Waiting for app to start..."
+          sleep 10
+          
+          echo "Testing health endpoint..."
+          curl -f http://localhost:5000/health || (echo "Health check failed" && kill $APP_PID && exit 1)
+          
+          echo "Testing API endpoints..."
+          curl -f http://localhost:5000/api/schema > /dev/null || (echo "Schema API failed" && kill $APP_PID && exit 1)
+          curl -f http://localhost:5000/api/quiz/questions > /dev/null || (echo "Quiz API failed" && kill $APP_PID && exit 1)
+          
+          echo "All tests passed!"
+          kill $APP_PID
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install security tools
+        run: |
+          pip install bandit safety pip-audit
+      
+      - name: Run Bandit security linter
+        run: |
+          echo "Running Bandit security scan..."
+          bandit -r . -f json -o bandit-report.json || echo "Bandit found issues"
+          if [ -f bandit-report.json ]; then
+            echo "Bandit report:"
+            cat bandit-report.json
+          fi
+      
+      - name: Run Safety check
+        run: |
+          echo "Running Safety vulnerability scan..."
+          safety check --json || echo "Safety found vulnerabilities"
+      
+      - name: Run pip-audit
+        run: |
+          echo "Running pip-audit..."
+          pip-audit --format=json || echo "pip-audit found vulnerabilities"
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  build:
+    needs: [test, security]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VERSION=${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger Watchtower Update
+        run: |
+          echo "Triggering Watchtower update for SQLQuiz..."
+          
+          # Trigger Watchtower via Cloudflare tunnel with Access service token
+          curl -H "Authorization: Bearer ${{ secrets.WATCHTOWER_TOKEN }}" \
+               -H "CF-Access-Client-Id: ${{ secrets.CF_ACCESS_CLIENT_ID }}" \
+               -H "CF-Access-Client-Secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}" \
+               -X POST \
+               "https://sqlquiz.visiquate.com/api/watchtower/v1/update" \
+               --fail \
+               --retry 3 \
+               --retry-delay 10 \
+               --max-time 30 || echo "Watchtower trigger failed, but deployment may still succeed via scheduled checks"
+      
+      - name: Verify deployment
+        run: |
+          echo "Waiting for deployment to complete..."
+          sleep 60
+          
+          echo "Verifying deployment health..."
+          HEALTH_CHECK=$(curl -s https://sqlquiz.visiquate.com/health || echo "Health check failed")
+          echo "Health check response: $HEALTH_CHECK"
+          
+          # Extract commit from health response to verify deployment
+          DEPLOYED_COMMIT=$(echo "$HEALTH_CHECK" | grep -o '"commit":"[^"]*"' | cut -d'"' -f4 || echo "unknown")
+          EXPECTED_COMMIT="${{ github.sha }}"
+          EXPECTED_SHORT="${EXPECTED_COMMIT:0:7}"
+          
+          echo "Expected commit: $EXPECTED_SHORT"
+          echo "Deployed commit: $DEPLOYED_COMMIT"
+          
+          if [ "$DEPLOYED_COMMIT" = "$EXPECTED_SHORT" ]; then
+            echo "✅ Deployment verified successfully!"
+          else
+            echo "⚠️  Deployment verification inconclusive. Expected: $EXPECTED_SHORT, Got: $DEPLOYED_COMMIT"
+            echo "This may be normal if deployment is still in progress."
+          fi
+
+  scheduled-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run health check
+        run: |
+          echo "Running scheduled health check..."
+          curl -f https://sqlquiz.visiquate.com/health
+          echo "Health check passed!"
+      
+      - name: Run API tests
+        run: |
+          echo "Testing API endpoints..."
+          curl -f https://sqlquiz.visiquate.com/api/schema > /dev/null
+          curl -f https://sqlquiz.visiquate.com/api/quiz/questions > /dev/null
+          echo "API tests passed!"

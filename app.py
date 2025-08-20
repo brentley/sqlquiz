@@ -261,12 +261,36 @@ def parse_money_to_cents(money_str):
 
 def is_money_column(column_name):
     """Detect if a column contains monetary values based on name"""
-    money_indicators = [
-        'charge', 'payment', 'balance', 'amount', 'amt', 'cost', 'price', 
-        'total', 'revenue', 'reimbursement', 'adjustment', 'debt', 'paid'
+    column_lower = column_name.lower()
+    
+    # First check if it's clearly NOT a money column
+    non_money_indicators = [
+        'date', 'time', 'status', 'code', 'desc', 'description', 'id', 'number',
+        'category', 'type', 'flag', 'name', 'office', 'center', 'system'
     ]
     
-    column_lower = column_name.lower()
+    # If it contains non-money indicators, it's not a money column
+    if any(indicator in column_lower for indicator in non_money_indicators):
+        return False
+    
+    # Now check for money indicators
+    money_indicators = [
+        'charge', 'amount', 'amt', 'cost', 'price', 'revenue', 'reimbursement', 
+        'adjustment', 'debt', 'refund'
+    ]
+    
+    # More specific patterns for money - avoid false positives
+    specific_money_patterns = [
+        '_amt', '_amount', '_charge', '_cost', '_price', '_revenue', 
+        '_reimbursement', '_adjustment', '_debt', '_refund',
+        'total_', '_total', '_paid_amt', '_payment_amt'
+    ]
+    
+    # Check for specific money patterns first (more precise)
+    if any(pattern in column_lower for pattern in specific_money_patterns):
+        return True
+        
+    # Check for general money indicators (but we already filtered out dates/categories)
     return any(indicator in column_lower for indicator in money_indicators)
 
 def format_cents_to_dollars(cents):
@@ -1303,6 +1327,7 @@ def create_table_from_csv(conn, csv_file_path, table_name):
                 # Only use INTEGER for clearly numeric money columns
                 if is_money_column(header):
                     column_types[safe_header] = 'INTEGER'  # Store as cents
+                    print(f"Detected money column: {header} -> {safe_header}")
                 else:
                     column_types[safe_header] = 'TEXT'  # Preserve everything else as text
             

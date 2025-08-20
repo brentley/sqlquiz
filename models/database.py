@@ -35,11 +35,18 @@ def init_database():
     """Initialize both healthcare and user databases"""
     print("Initializing databases...")
     
-    # Initialize healthcare database
-    init_healthcare_database()
+    try:
+        # Initialize healthcare database
+        init_healthcare_database()
+    except Exception as e:
+        print(f"Warning: Healthcare database initialization failed: {e}")
     
-    # Initialize user database
-    init_user_database()
+    try:
+        # Initialize user database
+        init_user_database()
+    except Exception as e:
+        print(f"Warning: User database initialization failed: {e}")
+        print("Application will continue but user features may not work properly")
 
 
 def init_healthcare_database():
@@ -71,7 +78,17 @@ def init_user_database():
     
     conn = get_user_db_connection()
     try:
+        # Check if database exists and what schema it has
+        existing_tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        existing_table_names = [table['name'] for table in existing_tables]
+        print(f"Existing tables in user database: {existing_table_names}")
+        
+        # Create or update user tables
         create_user_tables(conn)
+        
+        # Verify the schema was created correctly
+        verify_user_database_schema(conn)
+        
         conn.commit()
         print(f"User database initialized successfully: {USER_DATABASE}")
         
@@ -81,6 +98,9 @@ def init_user_database():
         
     except Exception as e:
         print(f"Error initializing user database: {e}")
+        print(f"Exception type: {type(e).__name__}")
+        import traceback
+        traceback.print_exc()
         raise
     finally:
         conn.close()
@@ -189,6 +209,52 @@ def create_user_tables(conn):
             UNIQUE(user_id, challenge_id)
         )
     ''')
+
+
+def verify_user_database_schema(conn):
+    """Verify that all required columns exist in user tables"""
+    print("Verifying user database schema...")
+    
+    # Check users table schema
+    try:
+        users_info = conn.execute("PRAGMA table_info(users)").fetchall()
+        users_columns = [col['name'] for col in users_info]
+        print(f"Users table columns: {users_columns}")
+        
+        required_users_columns = ['id', 'username', 'password_hash', 'email', 'created_at', 'last_login', 'is_active']
+        missing_columns = [col for col in required_users_columns if col not in users_columns]
+        
+        if missing_columns:
+            print(f"Missing columns in users table: {missing_columns}")
+            # Add missing columns
+            for column in missing_columns:
+                if column == 'password_hash':
+                    conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+                elif column == 'email':
+                    conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
+                elif column == 'last_login':
+                    conn.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
+                elif column == 'is_active':
+                    conn.execute("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1")
+                print(f"Added missing column: {column}")
+        else:
+            print("Users table schema is complete")
+            
+    except Exception as e:
+        print(f"Error verifying users table schema: {e}")
+        # If users table doesn't exist, it will be created by create_user_tables
+    
+    # Verify other important tables exist
+    tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+    table_names = [table['name'] for table in tables]
+    
+    required_tables = ['users', 'user_sessions', 'query_logs', 'challenges', 'challenge_attempts', 'user_challenge_progress']
+    missing_tables = [table for table in required_tables if table not in table_names]
+    
+    if missing_tables:
+        print(f"Missing tables: {missing_tables}")
+    else:
+        print("All required tables exist")
 
 
 def get_version_info():

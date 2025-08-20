@@ -291,7 +291,7 @@ function executeQuery() {
 let currentQuery = '';
 let currentPage = 1;
 let totalCount = 0;
-let rowsPerPage = 1000;
+let rowsPerPage = parseInt(localStorage.getItem('sqlquiz-rows-per-page')) || 1000;
 
 function displayResults(data) {
     const resultsContainer = document.getElementById('resultsContainer');
@@ -356,16 +356,29 @@ function displayResults(data) {
             </div>
         `;
     } else {
-        // Add pagination controls only if NOT user limited and multiple pages exist
-        if (!isUserLimited && totalPages > 1) {
+        // Add pagination controls only if NOT user limited and we have results that could be paginated
+        if (!isUserLimited && totalCount > 100) {
             html += `
                 <div class="px-3 pt-3 pb-2 bg-light border-bottom">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div class="text-muted small">
                             Showing rows ${((currentPage - 1) * rowsPerPage + 1).toLocaleString()} - ${Math.min(currentPage * rowsPerPage, totalCount).toLocaleString()} of ${totalCount.toLocaleString()}
                         </div>
-                        <div id="paginationControls">
-                            ${generatePaginationControls(totalPages)}
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="text-muted small mb-0" for="rowsPerPageSelect">Rows per page:</label>
+                                <select id="rowsPerPageSelect" class="form-select form-select-sm" style="width: auto;" onchange="changeRowsPerPage(this.value)">
+                                    <option value="100" ${rowsPerPage === 100 ? 'selected' : ''}>100</option>
+                                    <option value="250" ${rowsPerPage === 250 ? 'selected' : ''}>250</option>
+                                    <option value="500" ${rowsPerPage === 500 ? 'selected' : ''}>500</option>
+                                    <option value="1000" ${rowsPerPage === 1000 ? 'selected' : ''}>1000</option>
+                                </select>
+                            </div>
+                            ${totalPages > 1 ? `
+                                <div id="paginationControls">
+                                    ${generatePaginationControls(totalPages)}
+                                </div>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
@@ -472,6 +485,50 @@ function goToPage(page) {
         body: JSON.stringify({ 
             query: currentQuery,
             page: page,
+            rows_per_page: rowsPerPage
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        displayResults(data);
+    })
+    .catch(error => {
+        showAlert('Network error: ' + error.message, 'danger');
+        resultsContainer.innerHTML = '';
+    });
+}
+
+function changeRowsPerPage(newRowsPerPage) {
+    if (!currentQuery) return;
+    
+    // Update global variable
+    rowsPerPage = parseInt(newRowsPerPage);
+    
+    // Save user preference
+    localStorage.setItem('sqlquiz-rows-per-page', rowsPerPage);
+    
+    // Show loading state
+    const resultsContainer = document.getElementById('resultsContainer');
+    resultsContainer.innerHTML = `
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Updating page size to ${rowsPerPage} rows...</p>
+            </div>
+        </div>
+    `;
+    
+    // Re-execute query with page 1 and new page size
+    fetch('/api/execute', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+            query: currentQuery,
+            page: 1,
             rows_per_page: rowsPerPage
         })
     })

@@ -478,6 +478,17 @@ footer {
     color: #000 !important;
 }
 
+/* Rows per page selector styling */
+#rowsPerPageSelect {
+    min-width: 80px;
+    max-width: 100px;
+}
+
+.pagination-info .form-select-sm {
+    font-size: 0.75rem;
+    padding: 0.25rem 1.5rem 0.25rem 0.5rem;
+}
+
 /* Animation for quiz transitions */
 .fade-in {
     animation: fadeIn 0.3s ease-in;

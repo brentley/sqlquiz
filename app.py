@@ -126,10 +126,45 @@ def data_explorer():
     return render_template('explore.html')
 
 
-@app.route('/upload')
+@app.route('/upload', methods=['GET', 'POST'])
 @require_login
 def data_upload():
-    """Data upload interface"""
+    """Data upload interface and processing"""
+    if request.method == 'POST':
+        # Handle file upload
+        if 'zip_file' not in request.files:
+            flash('No file uploaded', 'error')
+            return render_template('upload.html')
+        
+        file = request.files['zip_file']
+        if file.filename == '':
+            flash('No file selected', 'error')
+            return render_template('upload.html')
+        
+        # Check if clear existing data was requested
+        clear_existing = 'clear_existing' in request.form
+        
+        # Process the upload
+        result = process_csv_upload(file, clear_existing)
+        
+        if result['success']:
+            if isinstance(result, dict) and 'results' in result:
+                # Multiple files processed
+                flash(result['message'], 'success')
+                for file_result in result['results']:
+                    if file_result['success']:
+                        flash(f"✓ {file_result.get('filename', 'File')}: {file_result.get('rows_imported', 0)} rows imported", 'success')
+                    else:
+                        flash(f"✗ {file_result.get('filename', 'File')}: {file_result.get('error', 'Unknown error')}", 'error')
+            else:
+                # Single file processed
+                flash(f"File uploaded successfully! {result.get('rows_imported', 0)} rows imported into {result.get('table_name', 'table')}", 'success')
+            
+            # Redirect to index page to see the data
+            return redirect(url_for('index'))
+        else:
+            flash(f"Upload failed: {result.get('error', 'Unknown error')}", 'error')
+    
     return render_template('upload.html')
 
 

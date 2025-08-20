@@ -16,9 +16,10 @@ A comprehensive web-based SQL skills assessment and training platform designed f
 ### 🔄 **Dynamic Data Import**
 - **Upload any CSV data** - Transform CSV files into interactive SQL databases
 - **ZIP file support** - Upload multiple CSV files at once
-- **Automatic schema detection** - Intelligent column type inference
+- **Automatic schema detection** - Intelligent column type inference with duplicate column handling
 - **UTF-8 BOM handling** - Clean data import from various sources
-- **Smart query generation** - Automatic sample queries based on your data
+- **High-performance processing** - Optimized for large datasets (150K+ rows)
+- **Smart query generation** - Automatic sample queries based on your data with relationship detection
 
 ### 🏆 **Challenge Mode Assessment System**
 - **Progressive difficulty levels** - Basic → Intermediate → Advanced → Expert
@@ -36,10 +37,11 @@ A comprehensive web-based SQL skills assessment and training platform designed f
 
 ### 🎨 **Professional UI/UX**
 - **Mobile-first design** - Responsive interface for all devices
-- **CodeMirror integration** - Syntax highlighting and auto-completion
+- **CodeMirror integration** - Syntax highlighting with SQL comment support
 - **Real-time feedback** - Immediate query results and error handling
 - **Schema reference** - Interactive database structure viewer
-- **Dark/light theme support** - User preference detection
+- **Dark/light theme support** - User preference detection with proper contrast
+- **Resilient authentication** - Graceful degradation when database unavailable
 
 ## 🚀 Quick Start
 
@@ -249,6 +251,24 @@ ORDER BY avg_days_to_payment ASC;
 - ✅ **Progression Tracking**: Improvement over time and attempts
 - ✅ **Export Formats**: JSON reports for external analysis
 
+## 🎯 Recent Updates
+
+### **v2.1.0 - Production Stability & Performance** 🚀
+- **High-performance CSV processing** - Optimized for 150K+ row datasets with column type caching
+- **Resilient authentication system** - Graceful degradation when user database unavailable  
+- **Query validation improvements** - Proper support for SQL comments in SELECT statements
+- **Duplicate column handling** - Automatic renaming of duplicate CSV column headers
+- **Database schema migrations** - Robust handling of existing database upgrades
+- **Production deployment fixes** - Resolved container permissions and initialization issues
+- **UI visibility enhancements** - Fixed dark theme code examples and error templates
+
+### **v2.0.0 - Data Explorer Transformation** 🔄
+- **Dynamic CSV import system** - Upload any data, get instant SQL interface
+- **Challenge mode** - Progressive difficulty assessment system  
+- **Admin dashboard** - Comprehensive candidate evaluation tools
+- **Modular architecture** - Maintainable, scalable codebase
+- **UI/UX overhaul** - Modern, responsive, mobile-first design
+
 ## 🐳 Docker Deployment
 
 ### Development
@@ -359,10 +379,13 @@ Contributions welcome! Areas for enhancement:
 - [ ] **Mobile App**: Native mobile assessment experience
 
 ### **Technical Improvements**
-- [ ] **Database Optimization**: Query performance enhancements
+- [x] **Database Optimization**: CSV processing performance enhancements ✅
+- [x] **Authentication System**: Resilient authentication with graceful degradation ✅
+- [x] **Schema Migration**: Robust database schema updates ✅
+- [x] **Query Validation**: Enhanced security with comment support ✅
 - [ ] **Caching Layer**: Redis integration for better performance
-- [ ] **Authentication System**: Role-based access control
-- [ ] **Audit Logging**: Comprehensive activity tracking
+- [ ] **Role-based Access Control**: Admin/candidate permission levels
+- [ ] **Audit Logging**: Enhanced activity tracking
 - [ ] **Backup Systems**: Automated data protection
 
 ---

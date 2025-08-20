@@ -287,10 +287,12 @@ def process_single_csv(file_obj, filename):
             # Drop existing table if it exists
             conn.execute(f'DROP TABLE IF EXISTS {table_name}')
             
-            # Create table
+            # Create table and determine column types once
             columns_sql = []
+            column_types = {}
             for col_name in cleaned_fieldnames:
                 col_type = determine_column_type(sample_rows, col_name)
+                column_types[col_name] = col_type  # Cache the type
                 columns_sql.append(f'`{col_name}` {col_type}')
             
             create_sql = f'CREATE TABLE {table_name} ({", ".join(columns_sql)})'
@@ -306,8 +308,8 @@ def process_single_csv(file_obj, filename):
                 for old_name, new_name in zip(csv_reader.fieldnames, cleaned_fieldnames):
                     value = clean_value(row[old_name])
                     
-                    # Process based on column type
-                    col_type = determine_column_type(sample_rows, new_name)
+                    # Process based on cached column type (MUCH faster)
+                    col_type = column_types[new_name]
                     if col_type == 'INTEGER' and is_money_column(new_name):
                         value = parse_money_to_cents(value) if value else None
                     elif col_type == 'REAL':

@@ -43,6 +43,14 @@ A comprehensive web-based SQL skills assessment and training platform designed f
 - **Dark/light theme support** - User preference detection with proper contrast
 - **Resilient authentication** - Graceful degradation when database unavailable
 
+### 📊 **Smart Query Results & Pagination**
+- **Server-side pagination** - Navigate through millions of rows efficiently
+- **Smart pagination rules** - Respects user LIMIT clauses (≤5000 rows) exactly
+- **Configurable page sizes** - Choose 100, 250, 500, or 1000 rows per page
+- **Performance optimization** - Prevents browser freezing with large datasets
+- **User preferences** - Persistent settings for font size and page size
+- **Font size controls** - 5 levels from extra small to extra large for optimal viewing
+
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
@@ -73,9 +81,12 @@ The application will be available at: http://localhost:5002
 ### 🔍 **Data Explorer Mode**
 - **Free-form SQL practice** with any uploaded data
 - **Intelligent sample queries** based on your schema
-- **Real-time query execution** with results visualization
-- **Schema browser** for table exploration
-- **Query history** and favorites
+- **Real-time query execution** with results visualization and progress tracking
+- **Schema browser** for table exploration with sample data preview
+- **Smart pagination** - Navigate through large result sets efficiently
+- **Configurable display** - Adjustable font sizes and rows per page (100-1000)
+- **SQL semantics respect** - LIMIT clauses honored exactly as written
+- **Query performance monitoring** - Execution time tracking with 60-second timeout
 
 ### 🏆 **Challenge Mode** (Assessment)
 - **7 progressive challenges** from basic to expert level
@@ -133,7 +144,9 @@ data-explorer/
 #### Data Management
 - `GET /api/schema` - Get database schema information
 - `GET /api/tables` - List available tables
-- `POST /api/execute` - Execute SQL queries
+- `POST /api/execute` - Execute SQL queries with pagination support
+  - Parameters: `query`, `page` (default: 1), `rows_per_page` (default: 1000)
+  - Smart pagination: Respects user LIMIT clauses ≤5000 rows exactly
 - `GET /api/sample-queries` - Get intelligent sample queries
 - `POST /api/upload` - Upload CSV/ZIP data files
 
@@ -253,6 +266,14 @@ ORDER BY avg_days_to_payment ASC;
 
 ## 🎯 Recent Updates
 
+### **v2.2.0 - Smart Pagination & Enhanced UX** 📊
+- **Smart server-side pagination** - Navigate through millions of rows efficiently
+- **SQL semantics compliance** - Respects user LIMIT clauses (≤5000) exactly as written
+- **Configurable page sizes** - Choose 100, 250, 500, or 1000 rows per page with persistent preferences
+- **Font size controls** - 5 adjustable levels (XS to XL) for optimal data viewing
+- **Performance optimization** - Prevents browser freezing with large result sets
+- **User experience improvements** - Loading states, progress tracking, and intuitive controls
+
 ### **v2.1.0 - Production Stability & Performance** 🚀
 - **High-performance CSV processing** - Optimized for 150K+ row datasets with column type caching
 - **Resilient authentication system** - Graceful degradation when user database unavailable  
@@ -302,9 +323,11 @@ docker compose ps
 
 ### **Performance**
 - **Database Engine**: SQLite for fast, embedded operations
-- **Query Performance**: Sub-second execution for most operations
-- **File Upload**: Handles large CSV files with streaming processing
-- **Concurrent Users**: Optimized for interview scenarios
+- **Query Performance**: Sub-second execution for most operations with 60-second timeout
+- **Smart Pagination**: Server-side pagination for large result sets (up to millions of rows)
+- **File Upload**: Handles large CSV files (150K+ rows) with streaming processing and column type caching
+- **Browser Optimization**: Prevents freezing with configurable page sizes (100-1000 rows)
+- **Concurrent Users**: Optimized for interview scenarios with efficient resource management
 
 ### **Security Features**
 - **Read-only database access** for candidate queries
@@ -359,8 +382,15 @@ docker compose ps
 
 ## 🤝 Contributing
 
-Contributions welcome! Areas for enhancement:
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on:
 
+- **Development setup** and coding standards
+- **Pull request process** and review guidelines
+- **Testing requirements** and security considerations
+- **Feature development areas** and technical improvements
+- **Bug reporting** and performance optimization
+
+Key areas for enhancement:
 - **Challenge Library**: Add more domain-specific problems
 - **UI/UX Improvements**: Enhanced candidate experience
 - **Analytics Features**: Advanced performance insights
@@ -387,6 +417,10 @@ Contributions welcome! Areas for enhancement:
 - [ ] **Role-based Access Control**: Admin/candidate permission levels
 - [ ] **Audit Logging**: Enhanced activity tracking
 - [ ] **Backup Systems**: Automated data protection
+
+## 📄 License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
 

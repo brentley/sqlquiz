@@ -272,9 +272,14 @@ function displayChallengeModal(challenge) {
                 </div>
                 
                 <div class="d-flex justify-content-between">
-                    <button class="btn btn-${color}" onclick="submitChallenge()">
-                        <i class="fas fa-play me-2"></i>Submit Query
-                    </button>
+                    <div>
+                        <button class="btn btn-${color}" onclick="submitChallenge()">
+                            <i class="fas fa-play me-2"></i>Submit Query
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="openSchemaWindow()">
+                            <i class="fas fa-database me-2"></i>Schema Reference
+                        </button>
+                    </div>
                     <button class="btn btn-outline-info" onclick="getHint()">
                         <i class="fas fa-lightbulb me-2"></i>Get Hint (<span id="hintsCount">0</span> used)
                     </button>
@@ -465,6 +470,23 @@ function displayChallengeResults(result) {
     `;
     
     resultsContainer.innerHTML = html;
+}
+
+function openSchemaWindow() {
+    // Open schema reference in a new window/tab
+    const schemaWindow = window.open(
+        '/schema', 
+        'schemaReference', 
+        'width=800,height=600,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no'
+    );
+    
+    if (schemaWindow) {
+        schemaWindow.focus();
+    } else {
+        // Fallback if popup was blocked
+        alert('Please allow popups for schema reference window');
+        window.open('/schema', '_blank');
+    }
 }
 </script>
 {% endblock %}

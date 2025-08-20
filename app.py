@@ -772,7 +772,10 @@ def data_upload():
             try:
                 result = process_zip_upload(file)
                 if result['success']:
-                    flash(f'Successfully imported {result["tables_created"]} tables from {result["files_processed"]} CSV files', 'success')
+                    if result.get('errors'):
+                        flash(result['message'], 'warning')
+                    else:
+                        flash(f'Successfully imported {result["tables_created"]} tables from {result["files_processed"]} CSV files', 'success')
                 else:
                     flash(f'Upload failed: {result["error"]}', 'error')
             except Exception as e:
@@ -810,28 +813,44 @@ def process_zip_upload(zip_file):
             
             tables_created = 0
             files_processed = 0
+            errors = []
             
             for csv_file_path in csv_files:
+                files_processed += 1  # Count all files found
                 try:
                     # Get table name from filename (without extension)
                     table_name = os.path.splitext(os.path.basename(csv_file_path))[0]
                     # Sanitize table name
                     table_name = re.sub(r'[^a-zA-Z0-9_]', '_', table_name).lower()
                     
+                    print(f"Processing CSV file: {os.path.basename(csv_file_path)} -> table: {table_name}")
+                    
                     # Read CSV and create table
                     if create_table_from_csv(conn, csv_file_path, table_name):
                         tables_created += 1
-                    files_processed += 1
+                        print(f"Successfully created table: {table_name}")
+                    else:
+                        error_msg = f"Failed to create table from {os.path.basename(csv_file_path)}"
+                        print(error_msg)
+                        errors.append(error_msg)
                     
                 except Exception as e:
-                    print(f"Error processing {csv_file_path}: {e}")
-                    continue
+                    error_msg = f"Error processing {os.path.basename(csv_file_path)}: {str(e)}"
+                    print(error_msg)
+                    errors.append(error_msg)
             
             conn.commit()
+            
+            success_msg = f"Processed {files_processed} CSV files, successfully created {tables_created} tables"
+            if errors:
+                success_msg += f". Errors: {'; '.join(errors)}"
+            
             return {
                 'success': True,
                 'tables_created': tables_created,
-                'files_processed': files_processed
+                'files_processed': files_processed,
+                'errors': errors,
+                'message': success_msg
             }
             
     except Exception as e:
@@ -841,88 +860,95 @@ def process_zip_upload(zip_file):
         conn.close()
 
 def create_table_from_csv(conn, csv_file_path, table_name):
-    """Create SQLite table from CSV file with 1:1 mapping"""
-    with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
-        # Detect delimiter
-        sample = csvfile.read(1024)
-        csvfile.seek(0)
-        sniffer = csv.Sniffer()
-        delimiter = sniffer.sniff(sample).delimiter
-        
-        reader = csv.reader(csvfile, delimiter=delimiter)
-        headers = next(reader)
-        
-        # Sanitize column names
-        sanitized_headers = []
-        for header in headers:
-            sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', header.strip()).lower()
-            if not sanitized or sanitized[0].isdigit():
-                sanitized = f'col_{sanitized}'
-            sanitized_headers.append(sanitized)
-        
-        # Peek at first few rows to determine column types
-        csvfile.seek(0)
-        reader = csv.DictReader(csvfile, delimiter=delimiter)
-        sample_rows = []
-        for i, row in enumerate(reader):
-            if i >= 10:  # Sample first 10 rows
-                break
-            sample_rows.append(row)
-        
-        # Determine column types
-        column_types = {}
-        for header, sanitized in zip(headers, sanitized_headers):
-            column_types[sanitized] = determine_column_type(sample_rows, header)
-        
-        # Drop table if exists (for reimport)
-        conn.execute(f'DROP TABLE IF EXISTS {table_name}')
-        
-        # Create table
-        columns_sql = ', '.join([f'{col} {col_type}' for col, col_type in column_types.items()])
-        create_sql = f'CREATE TABLE {table_name} ({columns_sql})'
-        conn.execute(create_sql)
-        
-        # Insert data
-        csvfile.seek(0)
-        reader = csv.DictReader(csvfile, delimiter=delimiter)
-        
-        placeholders = ', '.join(['?' for _ in sanitized_headers])
-        insert_sql = f'INSERT INTO {table_name} ({", ".join(sanitized_headers)}) VALUES ({placeholders})'
-        
-        rows_inserted = 0
-        for row in reader:
-            values = []
-            for header, sanitized in zip(headers, sanitized_headers):
-                value = row.get(header, '').strip()
-                if value == '' or value.lower() in ['null', 'none', 'n/a']:
-                    values.append(None)
-                else:
-                    # Convert value based on determined type
-                    col_type = column_types[sanitized]
-                    if col_type == 'INTEGER':
-                        # Check if this is a money column
-                        if is_money_column(header):
-                            # Convert dollars to cents
-                            cents_value = parse_money_to_cents(value)
-                            values.append(cents_value)
-                        else:
-                            try:
-                                values.append(int(float(value)))  # Handle integers stored as floats
-                            except (ValueError, TypeError):
-                                values.append(None)
-                    elif col_type == 'REAL':
-                        try:
-                            values.append(float(value))
-                        except (ValueError, TypeError):
-                            values.append(None)
-                    else:  # TEXT
-                        values.append(value)
+    """Create SQLite table from CSV file with 1:1 mapping - preserving original data"""
+    try:
+        with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
+            # Detect delimiter
+            sample = csvfile.read(1024)
+            csvfile.seek(0)
+            sniffer = csv.Sniffer()
+            delimiter = sniffer.sniff(sample).delimiter
             
-            conn.execute(insert_sql, values)
-            rows_inserted += 1
+            reader = csv.reader(csvfile, delimiter=delimiter)
+            headers = next(reader)
+            
+            if not headers:
+                print(f"No headers found in {csv_file_path}")
+                return False
+            
+            print(f"Found {len(headers)} columns: {headers[:5]}...")  # Show first 5 headers
+            
+            # Keep original column names but quote them for SQL safety
+            # Only minimal sanitization - replace spaces with underscores for SQL compatibility
+            sql_safe_headers = []
+            for header in headers:
+                # Only replace spaces with underscores, keep everything else
+                safe_header = header.strip().replace(' ', '_')
+                sql_safe_headers.append(safe_header)
+            
+            # Peek at first few rows to determine column types
+            csvfile.seek(0)
+            reader = csv.DictReader(csvfile, delimiter=delimiter)
+            sample_rows = []
+            for i, row in enumerate(reader):
+                if i >= 10:  # Sample first 10 rows
+                    break
+                sample_rows.append(row)
+            
+            if not sample_rows:
+                print(f"No data rows found in {csv_file_path}")
+                return False
+            
+            # Determine column types (simplified - mostly TEXT to preserve data)
+            column_types = {}
+            for header, safe_header in zip(headers, sql_safe_headers):
+                # For most columns, just use TEXT to preserve original data
+                # Only use INTEGER for clearly numeric money columns
+                if is_money_column(header):
+                    column_types[safe_header] = 'INTEGER'  # Store as cents
+                else:
+                    column_types[safe_header] = 'TEXT'  # Preserve everything else as text
+            
+            # Drop table if exists (for reimport)
+            conn.execute(f'DROP TABLE IF EXISTS `{table_name}`')
+            
+            # Create table with quoted column names
+            columns_sql = ', '.join([f'`{col}` {col_type}' for col, col_type in column_types.items()])
+            create_sql = f'CREATE TABLE `{table_name}` ({columns_sql})'
+            conn.execute(create_sql)
+            
+            # Insert data
+            csvfile.seek(0)
+            reader = csv.DictReader(csvfile, delimiter=delimiter)
+            
+            placeholders = ', '.join(['?' for _ in sql_safe_headers])
+            quoted_headers = ', '.join([f'`{h}`' for h in sql_safe_headers])
+            insert_sql = f'INSERT INTO `{table_name}` ({quoted_headers}) VALUES ({placeholders})'
+            
+            rows_inserted = 0
+            for row in reader:
+                values = []
+                for header, safe_header in zip(headers, sql_safe_headers):
+                    value = row.get(header, '')  # Keep original value including empty strings
+                    
+                    # Only convert money columns to cents, keep everything else as-is
+                    if is_money_column(header) and value and value.strip():
+                        # Convert dollars to cents for money columns
+                        cents_value = parse_money_to_cents(value)
+                        values.append(cents_value)
+                    else:
+                        # Keep original value exactly as-is
+                        values.append(value if value else None)
+                
+                conn.execute(insert_sql, values)
+                rows_inserted += 1
         
-        print(f"Created table '{table_name}' with {len(sanitized_headers)} columns and {rows_inserted} rows")
+        print(f"Created table '{table_name}' with {len(sql_safe_headers)} columns and {rows_inserted} rows")
         return True
+        
+    except Exception as e:
+        print(f"Error creating table from {csv_file_path}: {str(e)}")
+        return False
 
 def determine_column_type(sample_rows, column_name):
     """Determine SQLite column type based on sample data"""

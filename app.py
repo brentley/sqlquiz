@@ -205,6 +205,14 @@ def admin_candidate_detail(username):
     return render_template('admin/candidate_detail.html', username=username)
 
 
+# Schema reference page
+@app.route('/schema')
+@require_login
+def schema():
+    """Schema reference page"""
+    return render_template('schema.html')
+
+
 # API Routes - Data Management
 @app.route('/api/schema')
 @require_login

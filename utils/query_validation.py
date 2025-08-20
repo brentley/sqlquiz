@@ -54,6 +54,11 @@ def validate_query(query):
     if not re.match(r'^\s*SELECT\b', query_for_analysis.strip(), re.IGNORECASE):
         return False, "Only SELECT statements are allowed"
     
+    # Check if query has a LIMIT clause for large result protection
+    if not re.search(r'\bLIMIT\s+\d+\b', query_for_analysis, re.IGNORECASE):
+        # Add a warning but don't block the query
+        print(f"Warning: Query without LIMIT clause may return many rows")
+    
     return True, None
 
 
@@ -68,7 +73,7 @@ def remove_sql_comments(query):
     return query
 
 
-def execute_safe_query(query, timeout_seconds=10):
+def execute_safe_query(query, timeout_seconds=60):
     """
     Execute a SQL query safely with validation and timeout.
     Returns (success, data, error_message, execution_time_ms, row_count)

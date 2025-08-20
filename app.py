@@ -420,8 +420,9 @@ def internal_error(error):
     return render_template('500.html'), 500
 
 
-# Initialize database on startup
+# Initialize database on startup (for both direct run and Gunicorn)
+print("=== Data Explorer - Modular Version ===")
+init_database()
+
 if __name__ == '__main__':
-    print("=== Data Explorer - Modular Version ===")
-    init_database()
     app.run(debug=True, host='0.0.0.0', port=5002)

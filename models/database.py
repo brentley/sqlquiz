@@ -396,6 +396,36 @@ def verify_user_database_schema(conn):
     except Exception as e:
         print(f"Error verifying query_logs table schema: {e}")
     
+    # Check challenge tables schema
+    try:
+        challenge_progress_info = conn.execute("PRAGMA table_info(user_challenge_progress)").fetchall()
+        progress_columns = [col['name'] for col in challenge_progress_info]
+        print(f"User_challenge_progress table columns: {progress_columns}")
+        
+        required_progress_columns = ['id', 'user_id', 'challenge_id', 'best_score', 'total_attempts', 'is_completed', 'created_at', 'updated_at']
+        missing_columns = [col for col in required_progress_columns if col not in progress_columns]
+        
+        if missing_columns:
+            print(f"Missing columns in user_challenge_progress table: {missing_columns}")
+            # Add missing columns
+            for column in missing_columns:
+                if column == 'best_score':
+                    conn.execute("ALTER TABLE user_challenge_progress ADD COLUMN best_score INTEGER DEFAULT 0")
+                elif column == 'total_attempts':
+                    conn.execute("ALTER TABLE user_challenge_progress ADD COLUMN total_attempts INTEGER DEFAULT 0")
+                elif column == 'is_completed':
+                    conn.execute("ALTER TABLE user_challenge_progress ADD COLUMN is_completed BOOLEAN DEFAULT 0")
+                elif column == 'created_at':
+                    conn.execute("ALTER TABLE user_challenge_progress ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                elif column == 'updated_at':
+                    conn.execute("ALTER TABLE user_challenge_progress ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                print(f"Added missing column: {column}")
+        else:
+            print("User_challenge_progress table schema is complete")
+            
+    except Exception as e:
+        print(f"Error verifying user_challenge_progress table schema: {e}")
+    
     # Verify other important tables exist
     tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     table_names = [table['name'] for table in tables]

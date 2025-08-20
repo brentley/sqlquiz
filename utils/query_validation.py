@@ -50,8 +50,8 @@ def validate_query(query):
     if len(statements) > 1:
         return False, "Multiple SQL statements not allowed"
     
-    # Basic syntax validation
-    if not re.match(r'^\s*SELECT\b', query, re.IGNORECASE):
+    # Basic syntax validation - use cleaned query without comments
+    if not re.match(r'^\s*SELECT\b', query_for_analysis.strip(), re.IGNORECASE):
         return False, "Only SELECT statements are allowed"
     
     return True, None

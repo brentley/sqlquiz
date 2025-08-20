@@ -454,6 +454,30 @@ footer {
     background: #a8a8a8;
 }
 
+/* Pagination controls styling */
+#paginationControls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+#paginationControls .btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    line-height: 1.2;
+    min-width: 2rem;
+}
+
+.pagination-info {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* Performance warning badge */
+.badge.bg-warning {
+    color: #000 !important;
+}
+
 /* Animation for quiz transitions */
 .fade-in {
     animation: fadeIn 0.3s ease-in;

@@ -279,6 +279,13 @@ function executeQuery() {
     });
 }
 
+// Global variables for pagination
+let currentResults = [];
+let currentColumns = [];
+let currentPage = 1;
+const ROWS_PER_PAGE = 100;
+const MAX_ROWS_TO_DISPLAY = 1000;
+
 function displayResults(data) {
     const resultsContainer = document.getElementById('resultsContainer');
     
@@ -297,6 +304,15 @@ function displayResults(data) {
         return;
     }
     
+    // Store results for pagination
+    currentResults = data.results.slice(0, MAX_ROWS_TO_DISPLAY); // Limit to 1000 rows
+    currentColumns = data.columns;
+    currentPage = 1;
+    
+    const totalRows = data.results.length;
+    const displayedRows = currentResults.length;
+    const isLimited = totalRows > MAX_ROWS_TO_DISPLAY;
+    
     let html = `
         <div class="card border-0 shadow-sm border-start border-success border-4">
             <div class="card-header bg-light">
@@ -304,7 +320,8 @@ function displayResults(data) {
                     <div>
                         <i class="fas fa-check-circle text-success me-2"></i>
                         <strong>Query Results</strong>
-                        <span class="badge bg-success ms-2">${data.results.length} rows</span>
+                        <span class="badge bg-success ms-2">${displayedRows} rows${isLimited ? ` (showing first ${MAX_ROWS_TO_DISPLAY} of ${totalRows})` : ''}</span>
+                        ${isLimited ? '<span class="badge bg-warning ms-1">Limited for performance</span>' : ''}
                     </div>
                     <button class="btn btn-outline-secondary btn-sm" onclick="exportResults()">
                         <i class="fas fa-download me-2"></i>Export CSV
@@ -322,7 +339,7 @@ function displayResults(data) {
             <div class="card-body p-0">
     `;
     
-    if (data.results.length === 0) {
+    if (displayedRows === 0) {
         html += `
             <div class="text-center py-5">
                 <i class="fas fa-search text-muted fa-2x mb-3"></i>
@@ -330,6 +347,23 @@ function displayResults(data) {
             </div>
         `;
     } else {
+        // Add pagination controls if needed
+        const totalPages = Math.ceil(displayedRows / ROWS_PER_PAGE);
+        if (totalPages > 1) {
+            html += `
+                <div class="px-3 pt-3 pb-2 bg-light border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted small">
+                            Showing ${ROWS_PER_PAGE} rows per page (Page ${currentPage} of ${totalPages})
+                        </div>
+                        <div id="paginationControls">
+                            ${generatePaginationControls(totalPages)}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
         html += `
             <div class="table-responsive">
                 <table id="resultsTable" class="table table-striped table-hover mb-0 result-font-md">
@@ -337,24 +371,18 @@ function displayResults(data) {
                         <tr>
         `;
         
-        data.columns.forEach(col => {
+        currentColumns.forEach(col => {
             html += `<th>${col}</th>`;
         });
         
         html += `
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="resultsTableBody">
         `;
         
-        data.results.forEach(row => {
-            html += '<tr>';
-            data.columns.forEach(col => {
-                const value = row[col];
-                html += `<td>${value !== null && value !== undefined ? value : '<span class="text-muted">NULL</span>'}</td>`;
-            });
-            html += '</tr>';
-        });
+        // Render only the current page
+        html += renderTablePage(currentPage);
         
         html += `
                     </tbody>
@@ -372,6 +400,77 @@ function displayResults(data) {
     
     // Apply saved font size
     loadSavedFontSize();
+}
+
+function renderTablePage(page) {
+    const startIndex = (page - 1) * ROWS_PER_PAGE;
+    const endIndex = Math.min(startIndex + ROWS_PER_PAGE, currentResults.length);
+    let html = '';
+    
+    for (let i = startIndex; i < endIndex; i++) {
+        const row = currentResults[i];
+        html += '<tr>';
+        currentColumns.forEach(col => {
+            const value = row[col];
+            html += `<td>${value !== null && value !== undefined ? value : '<span class="text-muted">NULL</span>'}</td>`;
+        });
+        html += '</tr>';
+    }
+    
+    return html;
+}
+
+function generatePaginationControls(totalPages) {
+    let controls = '';
+    
+    // First page button
+    controls += `<button class="btn btn-outline-secondary btn-sm me-1" onclick="goToPage(1)" ${currentPage === 1 ? 'disabled' : ''}>First</button>`;
+    
+    // Previous page button
+    controls += `<button class="btn btn-outline-secondary btn-sm me-1" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>Prev</button>`;
+    
+    // Page numbers (show current page and 2 pages on each side)
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, currentPage + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const isActive = i === currentPage;
+        controls += `<button class="btn ${isActive ? 'btn-secondary' : 'btn-outline-secondary'} btn-sm me-1" onclick="goToPage(${i})">${i}</button>`;
+    }
+    
+    // Next page button
+    controls += `<button class="btn btn-outline-secondary btn-sm me-1" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next</button>`;
+    
+    // Last page button
+    controls += `<button class="btn btn-outline-secondary btn-sm" onclick="goToPage(${totalPages})" ${currentPage === totalPages ? 'disabled' : ''}>Last</button>`;
+    
+    return controls;
+}
+
+function goToPage(page) {
+    const totalPages = Math.ceil(currentResults.length / ROWS_PER_PAGE);
+    
+    if (page < 1 || page > totalPages) return;
+    
+    currentPage = page;
+    
+    // Update table body
+    const tableBody = document.getElementById('resultsTableBody');
+    if (tableBody) {
+        tableBody.innerHTML = renderTablePage(currentPage);
+    }
+    
+    // Update pagination controls
+    const paginationControls = document.getElementById('paginationControls');
+    if (paginationControls) {
+        paginationControls.innerHTML = generatePaginationControls(totalPages);
+    }
+    
+    // Update page info
+    const pageInfo = document.querySelector('.text-muted.small');
+    if (pageInfo) {
+        pageInfo.innerHTML = `Showing ${ROWS_PER_PAGE} rows per page (Page ${currentPage} of ${totalPages})`;
+    }
 }
 
 function showSchema() {

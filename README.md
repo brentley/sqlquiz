@@ -1,25 +1,45 @@
-# SQLQuiz - Healthcare Database Skills Assessment
+# Data Explorer - Advanced SQL Skills Assessment Platform
 
-A professional web-based SQL skills assessment application designed for technical interviews and training. Built with pseudo healthcare invoicing data to provide authentic SQL learning experiences.
+A comprehensive web-based SQL skills assessment and training platform designed for technical interviews, candidate evaluation, and data analysis training. Features dynamic CSV data import, progressive challenge modes, and comprehensive admin analytics.
 
 ## 🎯 Purpose & Use Cases
 
 **Perfect for:**
-- **Technical Interviews** - Assess SQL skills with realistic healthcare scenarios
-- **Training Programs** - Learn SQL with authentic business data
+- **Technical Interviews** - Assess SQL skills with real-world data scenarios
+- **Candidate Evaluation** - Progressive challenge system with detailed tracking
+- **Training Programs** - Learn SQL with dynamic data exploration
 - **Skill Assessment** - Evaluate proficiency from basic queries to advanced analytics
-- **Interview Preparation** - Practice SQL before job interviews
+- **Data Science Interviews** - Test data analysis and problem-solving skills
 
-## 🏥 Database Overview
+## 🌟 Key Features
 
-The application uses a realistic healthcare billing database with:
+### 🔄 **Dynamic Data Import**
+- **Upload any CSV data** - Transform CSV files into interactive SQL databases
+- **ZIP file support** - Upload multiple CSV files at once
+- **Automatic schema detection** - Intelligent column type inference
+- **UTF-8 BOM handling** - Clean data import from various sources
+- **Smart query generation** - Automatic sample queries based on your data
 
-- **51,051 patients** with demographics and billing information
-- **61,421 invoices** with financial totals and payment tracking  
-- **217,654 invoice detail records** with CPT codes and line-item charges
-- **762 insurance plans** from various payors
-- **10 service lines** including diabetic supplies, wound care, ostomy, etc.
-- **$65.7M in total charges** with $45M in payments (68.5% collection rate)
+### 🏆 **Challenge Mode Assessment System**
+- **Progressive difficulty levels** - Basic → Intermediate → Advanced → Expert
+- **Real-time scoring** - Performance-based evaluation with efficiency bonuses
+- **Hint system** - Progressive disclosure with scoring penalties
+- **Query tracking** - Complete audit trail of all candidate attempts
+- **Performance metrics** - Execution time, accuracy, and approach analysis
+
+### 👥 **Comprehensive Admin Interface**
+- **Candidate management** - View all assessments with filtering and search
+- **Detailed analytics** - Performance breakdowns by difficulty level
+- **Query history** - See exact SQL queries attempted by each candidate
+- **Export functionality** - Generate detailed assessment reports
+- **System insights** - Identify challenging problems and success patterns
+
+### 🎨 **Professional UI/UX**
+- **Mobile-first design** - Responsive interface for all devices
+- **CodeMirror integration** - Syntax highlighting and auto-completion
+- **Real-time feedback** - Immediate query results and error handling
+- **Schema reference** - Interactive database structure viewer
+- **Dark/light theme support** - User preference detection
 
 ## 🚀 Quick Start
 
@@ -28,200 +48,206 @@ The application uses a realistic healthcare billing database with:
 pip3 install -r requirements.txt
 ```
 
-### 2. Load the Database
-```bash
-python3 load_data.py
-```
-
-This will create `healthcare_quiz.db` and populate it with data from the CSV files.
-
-### 3. Run the Application
+### 2. Run the Application
 ```bash
 python3 app.py
 ```
 
 The application will be available at: http://localhost:5002
 
-> **Note**: Port 5002 is used to avoid conflicts with macOS Control Center on port 5000
+### 3. Upload Your Data
+1. Navigate to **Upload Data** page
+2. Upload CSV files or ZIP archives
+3. Data is automatically converted to SQLite tables
+4. Start exploring with the **Data Explorer**
 
-## 📊 Features
+### 4. Set Up Assessments
+1. Use **Challenge Mode** to test candidates
+2. View results in **Admin Dashboard**
+3. Export detailed reports for evaluation
 
-### 🎓 Practice Mode
-- **Free-form SQL practice** with pseudo healthcare data
-- **SQL editor** with syntax highlighting and auto-completion
-- **Real-time query execution** with results display
-- **Schema browser** to explore table structures and relationships
-- **Sample queries** to get started quickly
-- **SQL comment support** for annotated queries
+## 📊 Application Modes
 
-### 🧠 Quiz Mode (Interview-Ready)
-- **15 progressive questions** from basic to advanced SQL
-- **Points-based scoring** (10-45 points per question)
-- **Multiple difficulty levels**: Easy, Medium, Hard
-- **Schema reference** - View database structure during quizzes
-- **Question categories**:
-  - Basic Queries & Filtering
-  - Aggregation & GROUP BY
-  - Joins & Relationships
-  - Date Functions & Time-based Analysis
-  - Healthcare Analytics & Business Intelligence
-  - Advanced Calculations & Window Functions
-- **Interview-friendly features**:
-  - Professional UI suitable for screen sharing
-  - Schema visibility for candidates
-  - Clear progress tracking
-  - Immediate feedback with explanations
+### 🔍 **Data Explorer Mode**
+- **Free-form SQL practice** with any uploaded data
+- **Intelligent sample queries** based on your schema
+- **Real-time query execution** with results visualization
+- **Schema browser** for table exploration
+- **Query history** and favorites
 
-### Security Features
-- **Read-only database access** prevents data modification
-- **Query validation** blocks dangerous SQL operations
-- **Sanitized inputs** prevent SQL injection attacks
+### 🏆 **Challenge Mode** (Assessment)
+- **7 progressive challenges** from basic to expert level
+- **Healthcare data scenarios** with realistic business problems
+- **Scoring system** based on correctness, efficiency, and hints used
+- **Progressive hint system** for guided problem-solving
+- **Attempt tracking** with detailed performance metrics
 
-## 🗃️ Database Schema
+### 👨‍💼 **Admin Dashboard**
+- **Candidate overview** with completion rates and scores
+- **Performance analytics** by difficulty level and challenge type
+- **Query-by-query analysis** showing problem-solving approaches
+- **Export capabilities** for detailed assessment reports
+- **System-wide insights** for challenge optimization
 
-### Core Tables
+## 🏗️ Architecture Overview
 
-**patients**
-- `patient_id` (Primary Key)
-- `date_of_birth`
-- `billing_office`
+### 📁 **Modular Structure**
+```
+data-explorer/
+├── app.py                     # Main Flask application (refactored & modular)
+├── app_monolithic.py          # Original monolithic version (backup)
+├── requirements.txt           # Python dependencies
+├── healthcare_quiz.db         # Default sample database
+├── user_data.db              # User tracking and challenges
+├── models/                   # Data models and database operations
+│   ├── __init__.py          # Package initialization
+│   ├── database.py          # Database connections and initialization
+│   ├── challenges.py        # Challenge system models
+│   └── users.py             # User management and sessions
+├── routes/                   # Route handlers (future expansion)
+│   └── __init__.py          # Package initialization
+├── utils/                    # Utility functions and helpers
+│   ├── __init__.py          # Package initialization
+│   ├── data_processing.py   # CSV processing and schema detection
+│   └── query_validation.py  # SQL security and validation
+├── templates/
+│   ├── base.html             # Base layout template
+│   ├── index.html            # Landing page
+│   ├── explore.html          # Data explorer interface
+│   ├── upload.html           # Data upload interface
+│   ├── challenges.html       # Challenge mode interface
+│   └── admin/                # Admin interface templates
+│       ├── dashboard.html    # Admin dashboard
+│       ├── candidates.html   # Candidate management
+│       └── candidate_detail.html # Detailed candidate view
+├── static/
+│   ├── css/style.css         # Custom styles
+│   └── js/app.js            # JavaScript utilities
+└── deploy/                   # Docker deployment configs
+```
 
-**invoices** 
-- `invoice_id` (Primary Key)
-- `patient_id` (Foreign Key)
-- Financial amounts (charges, payments, adjustments, balances)
-- Service dates and billing information
-- Insurance plan references
-- AR status tracking
+### 🔗 **API Endpoints**
 
-**invoice_details**
-- `invoice_detail_id` (Primary Key)
-- `invoice_id` (Foreign Key)
-- CPT codes and catalog codes
-- Quantity and unit charges
-- Service date details
+#### Data Management
+- `GET /api/schema` - Get database schema information
+- `GET /api/tables` - List available tables
+- `POST /api/execute` - Execute SQL queries
+- `GET /api/sample-queries` - Get intelligent sample queries
+- `POST /api/upload` - Upload CSV/ZIP data files
 
-**insurance_plans**
-- `plan_code` (Primary Key)
-- `plan_description`
-- `payor_name`
+#### Challenge System
+- `GET /api/challenges` - Get all challenges by difficulty
+- `GET /api/challenge/<id>` - Get specific challenge details
+- `POST /api/challenge/<id>/attempt` - Submit challenge attempt
+- `GET /api/user/progress` - Get user progress across challenges
 
-**service_lines**
-- `service_line_code` (Primary Key)
-- `service_line_name`
+#### Admin Interface
+- `GET /api/admin/candidates` - Get all candidates with summaries
+- `GET /api/admin/candidate/<username>/detail` - Detailed candidate data
+- `GET /api/admin/analytics` - System-wide performance analytics
+- `GET /api/admin/export/candidate/<username>` - Export assessment report
 
-## 🎯 Sample Queries
+## 🎯 Challenge System Details
 
-### Basic Queries
+### **Challenge Difficulty Levels**
+
+#### 🌱 **Level 1: Basic** (Green)
+- Simple SELECT queries and filtering
+- Basic aggregation (COUNT, SUM)
+- Single table operations
+- *Example: "How many unique patients are in the charges data?"*
+
+#### 🔥 **Level 2: Intermediate** (Yellow)
+- GROUP BY analysis and reporting
+- Date/time functions and filtering
+- Multiple aggregation functions
+- *Example: "Which month had the highest total charges?"*
+
+#### ⚡ **Level 3: Advanced** (Red)
+- Complex JOINs across multiple tables
+- Subqueries and analytical functions
+- Business logic implementation
+- *Example: "Find patients with invoices in multiple AR statuses"*
+
+#### 👑 **Level 4: Expert** (Purple)
+- Advanced business intelligence queries
+- Performance optimization challenges
+- Complex date arithmetic and analysis
+- *Example: "Analyze revenue cycle efficiency by billing office"*
+
+### **Scoring System**
+- **Base Score**: 100 points per challenge
+- **Correctness**: Based on result accuracy (±10% tolerance)
+- **Efficiency Bonus**: Faster queries earn bonus points
+- **Hint Penalty**: -10 points per hint used
+- **Time Factor**: Completion time affects final score
+
+## 🎨 Sample Challenge Problems
+
+### Basic Level
 ```sql
--- Count total patients
-SELECT COUNT(*) FROM patients;
-
--- List service lines
-SELECT * FROM service_lines ORDER BY service_line_name;
+-- Find Patient Count
+SELECT COUNT(DISTINCT NEW_PT_ID) FROM hw_charges;
 ```
 
-### Intermediate Queries
+### Intermediate Level  
 ```sql
--- Revenue by service line
-SELECT 
-    sl.service_line_name,
-    SUM(i.invoice_total_charges) as total_revenue
-FROM invoices i
-JOIN service_lines sl ON i.service_line_code = sl.service_line_code
-GROUP BY sl.service_line_code, sl.service_line_name
-ORDER BY total_revenue DESC;
+-- AR Status Distribution
+SELECT AR_STATUS, COUNT(*) as invoice_count 
+FROM hw_invoice 
+GROUP BY AR_STATUS 
+ORDER BY invoice_count DESC;
 ```
 
-### Advanced Analytics
+### Advanced Level
 ```sql
--- Collection rate by service line
-SELECT 
-    sl.service_line_name,
-    SUM(i.invoice_total_charges) as total_charges,
-    SUM(i.invoice_total_payments) as total_payments,
-    ROUND((SUM(i.invoice_total_payments) * 100.0 / SUM(i.invoice_total_charges)), 2) as collection_rate_percent
-FROM invoices i
-JOIN service_lines sl ON i.service_line_code = sl.service_line_code
-WHERE i.invoice_total_charges > 0
-GROUP BY sl.service_line_code, sl.service_line_name
-ORDER BY collection_rate_percent DESC;
+-- Insurance Reimbursement Analysis
+SELECT IPLAN_1_PAYOR, 
+       SUM(INVOICE_TOTAL_EXPECTED_REIMBURSEMENT) as expected,
+       SUM(INVOICE_TOTAL_INS_PAYMENTS) as actual,
+       ROUND(100.0 * SUM(INVOICE_TOTAL_INS_PAYMENTS) / 
+             SUM(INVOICE_TOTAL_EXPECTED_REIMBURSEMENT), 2) as rate
+FROM hw_invoice 
+WHERE IPLAN_1_PAYOR IS NOT NULL 
+GROUP BY IPLAN_1_PAYOR 
+ORDER BY rate DESC;
 ```
 
-## 🏗️ Technical Architecture
-
-### Backend (Flask)
-- **Python 3** web application
-- **SQLite database** for fast, embedded data storage
-- **RESTful API** for query execution and quiz functionality
-- **Security middleware** for query validation
-
-### Frontend
-- **Bootstrap 5** for responsive UI design
-- **CodeMirror** for SQL syntax highlighting
-- **Vanilla JavaScript** for interactive quiz functionality
-- **Mobile-first design** with touch-friendly interface
-
-### File Structure
-```
-sqlquiz/
-├── app.py                 # Flask application
-├── schema.sql             # Database schema definition
-├── load_data.py           # CSV data loader script
-├── quiz_questions.json    # Quiz questions and answers
-├── requirements.txt       # Python dependencies
-├── healthcare_quiz.db     # SQLite database (generated)
-├── templates/            
-│   ├── base.html         # Base template
-│   ├── index.html        # Home page
-│   ├── practice.html     # Practice mode
-│   └── quiz.html         # Quiz interface
-└── static/
-    ├── css/style.css     # Custom styles
-    └── js/app.js         # JavaScript utilities
+### Expert Level
+```sql
+-- Revenue Cycle Efficiency
+SELECT i.BILLING_OFFICE,
+       AVG(JULIANDAY(i.INVOICE_LAST_PAYMENT_DATE) - 
+           JULIANDAY(c.SERVICE_START_DATE)) as avg_days_to_payment
+FROM hw_invoice i 
+JOIN hw_charges c ON i.NEW_INVOICE_ID = c.NEW_INVOICE_ID
+WHERE i.AR_STATUS = 'Paid' AND i.INVOICE_LAST_PAYMENT_DATE IS NOT NULL
+GROUP BY i.BILLING_OFFICE
+ORDER BY avg_days_to_payment ASC;
 ```
 
-## 🧪 Development & Testing
+## 📊 Admin Analytics Features
 
-### Running Tests
-```bash
-# Test basic functionality
-curl http://localhost:5002/api/schema
+### **Candidate Performance Tracking**
+- ✅ Overall completion rates and progress visualization
+- ✅ Score breakdowns by difficulty level and category
+- ✅ Time-to-completion analysis across challenges
+- ✅ Hint usage patterns and help-seeking behavior
+- ✅ Query evolution and problem-solving approaches
 
-# Test query execution with comments (newly supported)
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"query":"-- Get patient count\nSELECT COUNT(*) FROM patients"}' \
-  http://localhost:5002/api/execute
+### **System-Wide Analytics**
+- ✅ Challenge difficulty rankings based on success rates
+- ✅ Performance trends across candidate pool
+- ✅ Most challenging problems identification
+- ✅ Average execution times and optimization opportunities
+- ✅ Candidate activity patterns and engagement metrics
 
-# Test quiz questions
-curl http://localhost:5002/api/quiz/questions
-
-# Test health endpoint
-curl http://localhost:5002/health
-```
-
-### Interview Testing Checklist
-- [ ] Schema visibility works in quiz mode (click "View Schema")
-- [ ] SQL comments work in practice mode (try "Load Basic Query")
-- [ ] Query execution provides clear feedback
-- [ ] Progress tracking works correctly
-- [ ] Mobile responsiveness for different screen sizes
-
-### Adding New Questions
-Edit `quiz_questions.json` to add new quiz questions:
-
-```json
-{
-  "id": 16,
-  "title": "Question Title",
-  "description": "Question description...",
-  "expected_query": "SELECT ...",
-  "hint": "Helpful hint for students",
-  "difficulty": "Easy|Medium|Hard",
-  "category": "Question Category", 
-  "points": 15
-}
-```
+### **Assessment Reports**
+- ✅ **Individual Reports**: Complete candidate assessment with query history
+- ✅ **Comparative Analysis**: Performance relative to candidate pool
+- ✅ **Skill Mapping**: Strengths and weaknesses by SQL concept
+- ✅ **Progression Tracking**: Improvement over time and attempts
+- ✅ **Export Formats**: JSON reports for external analysis
 
 ## 🐳 Docker Deployment
 
@@ -229,122 +255,118 @@ Edit `quiz_questions.json` to add new quiz questions:
 ```bash
 # Start development environment
 make dev
-# Or directly:
-docker compose -f docker-compose.dev.yml up
 
-# Access at http://localhost:5001
+# Run tests
+make test
+
+# View logs
+make logs
+
+# Access container shell
+make shell
 ```
 
 ### Production
 ```bash
-# Production deployment is automated via GitHub Actions
-# Manual deployment:
-docker compose up -d
+# Automated deployment via GitHub Actions
+git push origin main
 
-# View logs
-make logs
+# Manual deployment
+docker compose up -d
 
 # Check status
 docker compose ps
 ```
 
-### 🚀 Production-Ready DevOps
-- **Automated Deployments**: GitHub Actions with Watchtower integration
-- **Auto-healing**: Autoheal monitors and restarts unhealthy containers
-- **Cloudflare Tunnel**: Secure external access without exposed ports
-- **Health Monitoring**: Comprehensive health checks for all services
-- **Security Scanning**: Multiple tools (Bandit, Safety, pip-audit, Trivy) in CI/CD
-- **Multi-architecture**: Supports both amd64 and arm64 platforms
-- **Container Orchestration**: Docker Compose with development and production configs
+## 🔧 Technical Specifications
 
-### 🔒 Security & Compliance
-- **Read-only database access** prevents data modification
-- **SQL injection protection** with query validation and sanitization
-- **Container security** with non-root user and health checks
-- **Automated security scanning** in CI/CD pipeline
-- **Secrets management** with environment variables
+### **Performance**
+- **Database Engine**: SQLite for fast, embedded operations
+- **Query Performance**: Sub-second execution for most operations
+- **File Upload**: Handles large CSV files with streaming processing
+- **Concurrent Users**: Optimized for interview scenarios
 
-### Available Commands
-```bash
-make dev          # Start development environment
-make test         # Run test suite
-make build        # Build Docker image
-make logs         # View application logs
-make shell        # Access container shell
-make stop         # Stop all containers
-make clean        # Clean up everything
-make security-scan # Run security scans
-```
+### **Security Features**
+- **Read-only database access** for candidate queries
+- **Query validation** blocks dangerous SQL operations
+- **Input sanitization** prevents SQL injection attacks
+- **UTF-8 BOM cleaning** prevents hidden character issues
+- **Container security** with non-root user execution
+
+### **Browser Compatibility**
+- **Modern Browsers**: Chrome, Firefox, Safari, Edge (latest versions)
+- **Mobile Support**: Touch-friendly responsive design
+- **Accessibility**: WCAG 2.1 AA compliance
+- **Progressive Web App**: Offline capability and installable
 
 ## 🎯 Interview Usage Guide
 
-### For Interviewers
-1. **Preparation**: Start the application and navigate to Quiz Mode
-2. **Screen Sharing**: Share your screen showing the quiz interface
-3. **Schema Access**: Candidates can click "View Schema" to see database structure
-4. **Question Flow**: Use the built-in question progression (Easy → Medium → Hard)
-5. **Real-time Feedback**: Watch candidates work through problems with immediate validation
+### **For Interviewers**
+1. **Setup**: Upload relevant CSV data or use default healthcare dataset
+2. **Challenge Selection**: Choose appropriate difficulty level for candidate
+3. **Real-time Monitoring**: Watch candidate progress through admin dashboard
+4. **Assessment**: Review detailed query history and problem-solving approach
+5. **Export**: Generate comprehensive assessment report for evaluation
 
-### For Candidates
-1. **Practice First**: Use Practice Mode to familiarize yourself with the data
-2. **Schema Reference**: In Quiz Mode, click "View Schema" to see table structures
-3. **SQL Comments**: Use `-- comments` to explain your approach
-4. **Time Management**: 15 questions with increasing difficulty
-5. **Ask Questions**: Clarify business requirements when needed
+### **For Candidates**
+1. **Familiarization**: Start with Data Explorer to understand the schema
+2. **Challenge Mode**: Work through progressive difficulty levels
+3. **Hint Usage**: Use hints strategically (impacts final score)
+4. **SQL Best Practices**: Write clean, efficient queries with comments
+5. **Problem-Solving**: Think through business requirements before coding
 
-### Key Interview Scenarios Covered
-- **Data Retrieval**: Basic SELECT with filtering and sorting
-- **Aggregation**: GROUP BY, COUNT, SUM, AVG for business metrics
-- **Joins**: Multi-table queries for comprehensive reporting
-- **Date Analysis**: Time-based filtering and date functions
-- **Business Intelligence**: Healthcare KPIs, collection rates, patient analytics
-- **Advanced SQL**: Window functions, subqueries, complex calculations
+### **Key Assessment Areas**
+- **Data Retrieval**: SELECT, WHERE, ORDER BY fundamentals
+- **Aggregation**: GROUP BY, aggregate functions, HAVING clauses
+- **Joins**: INNER/LEFT/RIGHT joins across multiple tables
+- **Date Analysis**: Date functions and time-based filtering
+- **Business Intelligence**: KPIs, ratios, and analytical queries
+- **Advanced SQL**: Window functions, CTEs, complex subqueries
 
-## 📊 Database Business Context
+## 🔐 Data Privacy & Security
 
-The healthcare billing database represents a realistic medical billing scenario:
+### **Data Handling**
+- **User-uploaded data** stays local to your deployment
+- **No external data transmission** except for application functionality
+- **SQLite local storage** with configurable retention policies
+- **Assessment data tracking** with anonymization options
 
-- **Patient Demographics**: Age groups, billing offices, service utilization
-- **Financial Metrics**: Charges, payments, adjustments, outstanding balances
-- **Service Lines**: Diabetic supplies, wound care, ostomy products, etc.
-- **Insurance**: Multiple payors with varying coverage and payment patterns
-- **CPT Codes**: Medical procedure and supply codes for billing
-- **Time Series**: Historical data for trend analysis and reporting
-
-This provides realistic business scenarios for SQL assessment rather than artificial academic examples.
-
-## 🔧 Technical Specifications
-
-### Performance
-- **Database Size**: ~200MB SQLite file with 217K+ records
-- **Query Performance**: Optimized indexes for common query patterns
-- **Response Time**: Sub-second query execution for most operations
-- **Scalability**: Handles concurrent users for interview scenarios
-
-### Browser Compatibility
-- **Modern Browsers**: Chrome, Firefox, Safari, Edge (latest 2 versions)
-- **Mobile Support**: Responsive design for tablets and phones
-- **Accessibility**: WCAG 2.1 AA compliance for inclusive interviews
-
-### Deployment Options
-- **Local Development**: Direct Python execution for testing
-- **Docker**: Containerized deployment for consistency
-- **Cloud Ready**: Automated deployment via GitHub Actions
-- **Secure Access**: Cloudflare Tunnel for remote interviewing
-
-## 📝 License
-
-This project is for educational and professional assessment purposes using synthetic healthcare data.
+### **Security Measures**
+- **Container isolation** with minimal attack surface
+- **Read-only query execution** prevents data modification
+- **Input validation** at multiple application layers
+- **Secure deployment** with Cloudflare tunnel integration
 
 ## 🤝 Contributing
 
-Contributions welcome! Please feel free to:
-- **Add Questions**: Expand the quiz with new SQL challenges
-- **Improve UI/UX**: Enhance the interview experience
-- **Security**: Strengthen query validation and safety
-- **Documentation**: Add more examples and use cases
-- **Performance**: Optimize query execution and response times
+Contributions welcome! Areas for enhancement:
+
+- **Challenge Library**: Add more domain-specific problems
+- **UI/UX Improvements**: Enhanced candidate experience
+- **Analytics Features**: Advanced performance insights
+- **Integration Capabilities**: HR system integrations
+- **Security Enhancements**: Additional query validation
+- **Performance Optimization**: Query execution improvements
+
+## 📝 Roadmap
+
+### **Planned Features**
+- [x] **Module Refactoring**: Break app.py into focused modules ✅
+- [ ] **Custom Challenge Creation**: Admin interface for creating new challenges
+- [ ] **Team Assessment**: Multi-candidate comparison tools
+- [ ] **API Integrations**: Connect with ATS/HR systems
+- [ ] **Advanced Analytics**: Machine learning insights
+- [ ] **Mobile App**: Native mobile assessment experience
+
+### **Technical Improvements**
+- [ ] **Database Optimization**: Query performance enhancements
+- [ ] **Caching Layer**: Redis integration for better performance
+- [ ] **Authentication System**: Role-based access control
+- [ ] **Audit Logging**: Comprehensive activity tracking
+- [ ] **Backup Systems**: Automated data protection
 
 ---
 
-**Built with pseudo healthcare data for professional SQL skills assessment** 🏥📊💼
+**Professional SQL skills assessment made simple** 📊💼🚀
+
+*Transform any CSV data into interactive SQL assessment experiences*

@@ -869,8 +869,8 @@ def api_sample_queries():
                 if col in t2_columns:
                     # Clean column name more aggressively and validate it exists
                     clean_col = col.strip()
-                    # Remove various problematic characters
-                    for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c']:
+                    # Remove various problematic characters including UTF-8 BOM
+                    for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c', '\ufeff']:
                         clean_col = clean_col.replace(char, '')
                     
                     # Skip if column name is empty after cleaning
@@ -960,7 +960,7 @@ LIMIT 15;"""
         for col in columns:
             # Clean column name more aggressively
             clean_name = col['name'].strip()
-            for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c']:
+            for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c', '\ufeff']:
                 clean_name = clean_name.replace(char, '')
             
             if not clean_name:
@@ -997,7 +997,7 @@ LIMIT 15;"""
         # Look for ID or countable columns
         for col in columns:
             clean_name = col['name'].strip()
-            for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c']:
+            for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c', '\ufeff']:
                 clean_name = clean_name.replace(char, '')
                 
             if not clean_name:
@@ -1031,12 +1031,16 @@ LIMIT 15;"""
         if not group_column:
             # Use first available column as fallback
             if columns:
-                group_column = columns[0]['name'].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+                group_column = columns[0]['name'].strip()
+                for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c', '\ufeff']:
+                    group_column = group_column.replace(char, '')
             else:
                 group_column = 'column_name'
         if not count_column:
             if columns:
-                count_column = columns[0]['name'].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+                count_column = columns[0]['name'].strip()
+                for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c', '\ufeff']:
+                    count_column = count_column.replace(char, '')
             else:
                 count_column = 'id'
         
@@ -1264,12 +1268,20 @@ def create_table_from_csv(conn, csv_file_path, table_name):
             print(f"Found {len(headers)} columns: {headers[:5]}...")  # Show first 5 headers
             
             # Keep original column names but quote them for SQL safety
-            # Only minimal sanitization - replace spaces with underscores for SQL compatibility
+            # Clean problematic characters including UTF-8 BOM
             sql_safe_headers = []
             for header in headers:
-                # Only replace spaces with underscores, keep everything else
-                safe_header = header.strip().replace(' ', '_')
+                # Clean problematic characters first, then replace spaces with underscores
+                safe_header = header.strip()
+                # Remove problematic characters including UTF-8 BOM
+                for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c', '\ufeff']:
+                    safe_header = safe_header.replace(char, '')
+                # Replace spaces with underscores for SQL compatibility  
+                safe_header = safe_header.replace(' ', '_')
                 sql_safe_headers.append(safe_header)
+                
+                if header != safe_header:
+                    print(f"Cleaned column name: '{repr(header)}' -> '{repr(safe_header)}'")
             
             # Peek at first few rows to determine column types
             csvfile.seek(0)

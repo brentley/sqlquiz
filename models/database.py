@@ -252,28 +252,53 @@ def verify_user_database_schema(conn):
         sessions_columns = [col['name'] for col in sessions_info]
         print(f"User_sessions table columns: {sessions_columns}")
         
-        required_sessions_columns = ['id', 'user_id', 'session_token', 'login_time', 'last_activity', 'ip_address', 'user_agent', 'is_active']
-        missing_columns = [col for col in required_sessions_columns if col not in sessions_columns]
+        # Print detailed column info for debugging
+        for col in sessions_info:
+            print(f"  Column: {col['name']}, Type: {col['type']}, Not Null: {col['notnull']}, Default: {col['dflt_value']}")
         
-        if missing_columns:
-            print(f"Missing columns in user_sessions table: {missing_columns}")
-            # Add missing columns
-            for column in missing_columns:
-                if column == 'session_token':
-                    conn.execute("ALTER TABLE user_sessions ADD COLUMN session_token TEXT")
-                elif column == 'login_time':
-                    conn.execute("ALTER TABLE user_sessions ADD COLUMN login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-                elif column == 'last_activity':
-                    conn.execute("ALTER TABLE user_sessions ADD COLUMN last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-                elif column == 'ip_address':
-                    conn.execute("ALTER TABLE user_sessions ADD COLUMN ip_address TEXT")
-                elif column == 'user_agent':
-                    conn.execute("ALTER TABLE user_sessions ADD COLUMN user_agent TEXT")
-                elif column == 'is_active':
-                    conn.execute("ALTER TABLE user_sessions ADD COLUMN is_active BOOLEAN DEFAULT 1")
-                print(f"Added missing column: {column}")
+        # Check if table has incompatible schema (old version with session_id instead of proper columns)
+        if 'session_id' in sessions_columns and 'session_token' not in sessions_columns:
+            print("Detected old user_sessions table schema with session_id column. Recreating table...")
+            # Drop and recreate the table with correct schema
+            conn.execute("DROP TABLE user_sessions")
+            conn.execute('''
+                CREATE TABLE user_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    session_token TEXT UNIQUE NOT NULL,
+                    login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    is_active BOOLEAN DEFAULT 1,
+                    FOREIGN KEY (user_id) REFERENCES users (id)
+                )
+            ''')
+            print("Recreated user_sessions table with correct schema")
         else:
-            print("User_sessions table schema is complete")
+            # Check for missing columns in existing table
+            required_sessions_columns = ['id', 'user_id', 'session_token', 'login_time', 'last_activity', 'ip_address', 'user_agent', 'is_active']
+            missing_columns = [col for col in required_sessions_columns if col not in sessions_columns]
+            
+            if missing_columns:
+                print(f"Missing columns in user_sessions table: {missing_columns}")
+                # Add missing columns
+                for column in missing_columns:
+                    if column == 'session_token':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN session_token TEXT")
+                    elif column == 'login_time':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                    elif column == 'last_activity':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                    elif column == 'ip_address':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN ip_address TEXT")
+                    elif column == 'user_agent':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN user_agent TEXT")
+                    elif column == 'is_active':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN is_active BOOLEAN DEFAULT 1")
+                    print(f"Added missing column: {column}")
+            else:
+                print("User_sessions table schema is complete")
             
     except Exception as e:
         print(f"Error verifying user_sessions table schema: {e}")

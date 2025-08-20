@@ -31,8 +31,19 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_user_tables():
-    """Initialize user tracking tables"""
+def init_database():
+    """Initialize database and create all necessary tables"""
+    import os
+    
+    # Ensure the database file exists by creating a minimal database first
+    if not os.path.exists(DATABASE):
+        print(f"Creating initial database: {DATABASE}")
+        conn = sqlite3.connect(DATABASE)
+        conn.execute('CREATE TABLE IF NOT EXISTS _init (id INTEGER)')
+        conn.commit()
+        conn.close()
+    
+    # Now initialize user tracking tables
     conn = get_db_connection()
     try:
         # Create users table
@@ -78,11 +89,15 @@ def init_user_tables():
         ''')
         
         conn.commit()
+        print(f"Database initialized successfully: {DATABASE}")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        raise
     finally:
         conn.close()
 
-# Initialize user tables on startup
-init_user_tables()
+# Initialize database on startup
+init_database()
 
 def get_or_create_user(username, email=None):
     """Get existing user or create new one"""

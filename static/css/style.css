@@ -38,10 +38,22 @@
 }
 
 .table th {
-    background-color: #f8f9fa;
     border-top: none;
     font-weight: 600;
     white-space: nowrap;
+}
+
+/* Light table headers (default) */
+.table thead:not(.table-dark) th {
+    background-color: #f8f9fa;
+    color: #495057;
+}
+
+/* Dark table headers (for results) */
+.table thead.table-dark th {
+    background-color: #343a40;
+    color: #ffffff;
+    border-color: #454d55;
 }
 
 .table td {

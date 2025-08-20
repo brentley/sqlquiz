@@ -887,48 +887,60 @@ def api_sample_queries():
             print(f"Table {table1} columns: {t1_columns}")
             print(f"Table {table2} columns: {t2_columns}")
             
-            # Find potential join columns (common names or ID-like columns)
+            # Find potential join columns - prioritize meaningful relationships over just common names
             join_column = None
+            
+            # First, look for ID-like columns that might have actual relationships
+            id_candidates = []
             for col in t1_columns:
                 if col in t2_columns:
-                    # Clean column name more aggressively and validate it exists
                     clean_col = col.strip()
-                    # Remove various problematic characters including UTF-8 BOM
                     for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c', '\ufeff']:
                         clean_col = clean_col.replace(char, '')
                     
-                    # Skip if column name is empty after cleaning
                     if not clean_col:
-                        print(f"Skipping empty column after cleaning: {repr(col)}")
                         continue
                         
-                    try:
-                        # Test if we can actually query this column with different quote styles
-                        test_queries = [
-                            f"SELECT `{clean_col}` FROM `{table1}` LIMIT 1",
-                            f"SELECT [{clean_col}] FROM `{table1}` LIMIT 1", 
-                            f"SELECT \"{clean_col}\" FROM `{table1}` LIMIT 1",
-                            f"SELECT {clean_col} FROM `{table1}` LIMIT 1"
-                        ]
+                    # Prioritize ID-like columns for joins
+                    col_lower = clean_col.lower()
+                    if any(pattern in col_lower for pattern in ['_id', 'id', 'invoice', 'patient', 'billing']):
+                        id_candidates.append(clean_col)
+                    
+            # Test ID candidates first
+            for candidate in id_candidates:
+                try:
+                    # Check if this join would actually return results
+                    test_join = f"SELECT COUNT(*) FROM `{table1}` t1 JOIN `{table2}` t2 ON t1.`{candidate}` = t2.`{candidate}` LIMIT 1"
+                    result = conn.execute(test_join).fetchone()
+                    if result and result[0] > 0:
+                        join_column = candidate
+                        print(f"Found meaningful join column: {repr(candidate)} (would return {result[0]} rows)")
+                        break
+                except Exception as e:
+                    print(f"Join test failed for {candidate}: {e}")
+                    continue
+            
+            # If no meaningful ID joins found, fall back to any common column that returns results
+            if not join_column:
+                for col in t1_columns:
+                    if col in t2_columns:
+                        clean_col = col.strip()
+                        for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c', '\ufeff']:
+                            clean_col = clean_col.replace(char, '')
                         
-                        query_worked = False
-                        for test_query in test_queries:
-                            try:
-                                conn.execute(test_query).fetchone()
-                                conn.execute(test_query.replace(table1, table2)).fetchone()
-                                join_column = clean_col
-                                print(f"Found valid join column: {repr(clean_col)} using query: {test_query}")
-                                query_worked = True
-                                break
-                            except:
-                                continue
-                        
-                        if query_worked:
-                            break
+                        if not clean_col:
+                            continue
                             
-                    except Exception as e:
-                        print(f"Column '{repr(col)}' (cleaned: '{repr(clean_col)}') validation failed: {e}")
-                        continue
+                        try:
+                            # Test if this join returns any results
+                            test_join = f"SELECT COUNT(*) FROM `{table1}` t1 JOIN `{table2}` t2 ON t1.`{clean_col}` = t2.`{clean_col}` LIMIT 1"
+                            result = conn.execute(test_join).fetchone()
+                            if result and result[0] > 0:
+                                join_column = clean_col
+                                print(f"Found working join column: {repr(clean_col)} (would return {result[0]} rows)")
+                                break
+                        except Exception as e:
+                            continue
             
             # If no exact match, look for ID patterns
             if not join_column:
@@ -981,42 +993,48 @@ LIMIT 15;"""
         
         print(f"Columns in {first_table}: {[col['name'] for col in columns]}")
         
+        # Look for columns with diverse values for meaningful grouping
+        good_grouping_candidates = []
+        
         for col in columns:
-            # Clean column name more aggressively
             clean_name = col['name'].strip()
             for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c', '\ufeff']:
                 clean_name = clean_name.replace(char, '')
             
             if not clean_name:
-                print(f"Skipping empty column after cleaning: {repr(col['name'])}")
                 continue
                 
             col_name = clean_name.lower()
             
-            if col['type'] == 'TEXT' and not col_name.endswith('_id') and not col_name == 'id':
-                # Validate the column exists with multiple quote styles
-                test_queries = [
-                    f"SELECT `{clean_name}` FROM `{first_table}` LIMIT 1",
-                    f"SELECT [{clean_name}] FROM `{first_table}` LIMIT 1",
-                    f"SELECT \"{clean_name}\" FROM `{first_table}` LIMIT 1",
-                    f"SELECT {clean_name} FROM `{first_table}` LIMIT 1"
-                ]
+            # Skip obvious ID and date columns for grouping
+            if any(skip in col_name for skip in ['_id', 'date', 'time', 'number']):
+                continue
                 
-                query_worked = False
-                for test_query in test_queries:
-                    try:
-                        conn.execute(test_query).fetchone()
-                        group_column = clean_name
-                        print(f"Found valid group column: {repr(clean_name)} using query: {test_query}")
-                        query_worked = True
-                        break
-                    except:
-                        continue
+            if col['type'] == 'TEXT':
+                try:
+                    # Test how many distinct values this column has
+                    distinct_query = f"SELECT COUNT(DISTINCT `{clean_name}`) as distinct_count FROM `{first_table}`"
+                    distinct_result = conn.execute(distinct_query).fetchone()
+                    distinct_count = distinct_result[0] if distinct_result else 0
+                    
+                    # Good grouping columns have multiple but not too many distinct values
+                    if 2 <= distinct_count <= 100:  # Sweet spot for meaningful grouping
+                        good_grouping_candidates.append((clean_name, distinct_count))
+                        print(f"Found potential group column: {repr(clean_name)} with {distinct_count} distinct values")
                         
-                if query_worked:
-                    break
-                else:
-                    print(f"Group column '{repr(col['name'])}' (cleaned: '{repr(clean_name)}') validation failed with all quote styles")
+                except Exception as e:
+                    print(f"Could not test distinct values for {clean_name}: {e}")
+                    continue
+        
+        # Sort by number of distinct values (prefer moderate diversity)
+        good_grouping_candidates.sort(key=lambda x: x[1])
+        
+        # Pick the best candidate
+        if good_grouping_candidates:
+            group_column = good_grouping_candidates[0][0]
+            print(f"Selected group column: {repr(group_column)} ({good_grouping_candidates[0][1]} distinct values)")
+        else:
+            print("No good grouping columns found, will use fallback")
         
         # Look for ID or countable columns
         for col in columns:

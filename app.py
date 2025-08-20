@@ -836,12 +836,25 @@ def api_sample_queries():
             t1_columns = [col['name'] for col in schema_info[table1]]
             t2_columns = [col['name'] for col in schema_info[table2]]
             
+            print(f"Table {table1} columns: {t1_columns}")
+            print(f"Table {table2} columns: {t2_columns}")
+            
             # Find potential join columns (common names or ID-like columns)
             join_column = None
             for col in t1_columns:
                 if col in t2_columns:
-                    join_column = col
-                    break
+                    # Clean column name and validate it exists
+                    clean_col = col.strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+                    try:
+                        # Test if we can actually query this column
+                        conn.execute(f"SELECT `{clean_col}` FROM `{table1}` LIMIT 1").fetchone()
+                        conn.execute(f"SELECT `{clean_col}` FROM `{table2}` LIMIT 1").fetchone()
+                        join_column = clean_col
+                        print(f"Found valid join column: {clean_col}")
+                        break
+                    except Exception as e:
+                        print(f"Column '{col}' (cleaned: '{clean_col}') validation failed: {e}")
+                        continue
             
             # If no exact match, look for ID patterns
             if not join_column:
@@ -868,10 +881,14 @@ FROM {table1} t1
 JOIN {table2} t2 ON t1.{join_column} = t2.{join_column}
 LIMIT 15;"""
             else:
+                # No common columns found - provide a generic example with first columns of each table
+                t1_first = t1_columns[0].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '') if t1_columns else 'id'
+                t2_first = t2_columns[0].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '') if t2_columns else 'id'
                 queries['join'] = f"""-- Example JOIN query (adjust column names as needed)
+-- No common columns detected, showing example with first columns
 SELECT *
 FROM {table1} t1
-JOIN {table2} t2 ON t1.column_name = t2.column_name
+JOIN {table2} t2 ON t1.{t1_first} = t2.{t2_first}
 LIMIT 15;"""
         else:
             queries['join'] = f"""-- JOIN example (need 2+ tables)
@@ -888,23 +905,50 @@ LIMIT 15;"""
         group_column = None
         count_column = None
         
+        print(f"Columns in {first_table}: {[col['name'] for col in columns]}")
+        
         for col in columns:
-            col_name = col['name'].lower()
+            # Clean column name
+            clean_name = col['name'].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+            col_name = clean_name.lower()
+            
             if col['type'] == 'TEXT' and not col_name.endswith('_id') and not col_name == 'id':
-                group_column = col['name']
-                break
+                # Validate the column exists
+                try:
+                    conn.execute(f"SELECT `{clean_name}` FROM `{first_table}` LIMIT 1").fetchone()
+                    group_column = clean_name
+                    print(f"Found valid group column: {clean_name}")
+                    break
+                except Exception as e:
+                    print(f"Group column '{col['name']}' (cleaned: '{clean_name}') validation failed: {e}")
+                    continue
         
         # Look for ID or countable columns
         for col in columns:
-            col_name = col['name'].lower()
+            clean_name = col['name'].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+            col_name = clean_name.lower()
+            
             if col_name.endswith('_id') or col_name == 'id' or col['pk']:
-                count_column = col['name']
-                break
+                try:
+                    conn.execute(f"SELECT `{clean_name}` FROM `{first_table}` LIMIT 1").fetchone()
+                    count_column = clean_name
+                    print(f"Found valid count column: {clean_name}")
+                    break
+                except Exception as e:
+                    print(f"Count column '{col['name']}' (cleaned: '{clean_name}') validation failed: {e}")
+                    continue
         
         if not group_column:
-            group_column = columns[0]['name'] if columns else 'column_name'
+            # Use first available column as fallback
+            if columns:
+                group_column = columns[0]['name'].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+            else:
+                group_column = 'column_name'
         if not count_column:
-            count_column = columns[0]['name'] if columns else 'id'
+            if columns:
+                count_column = columns[0]['name'].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+            else:
+                count_column = 'id'
         
         queries['aggregate'] = f"""-- Aggregation example for {first_table}
 SELECT 

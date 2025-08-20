@@ -273,7 +273,26 @@ def format_cents_to_dollars(cents):
     """Convert cents (integer) back to dollar format for display"""
     if cents is None:
         return None
-    return cents / 100.0
+    
+    # Handle different input types
+    try:
+        # If it's already a string that looks like a dollar amount, return as-is
+        if isinstance(cents, str):
+            # Check if it already looks like a dollar amount
+            if '$' in cents or '.' in cents:
+                return cents
+            # Try to convert string to integer
+            cents = int(float(cents))
+        
+        # If it's a float, convert to int first
+        if isinstance(cents, float):
+            cents = int(cents)
+        
+        # Convert cents to dollars
+        return cents / 100.0
+    except (ValueError, TypeError):
+        # If conversion fails, return original value
+        return cents
 
 def load_healthcare_data(conn):
     """Load healthcare data from CSV files"""
@@ -531,16 +550,21 @@ def format_query_results(results, columns):
     if not results:
         return results
     
-    # Detect money columns by name
-    money_columns = [col for col in columns if is_money_column(col)]
+    # Detect money columns by name - temporarily disabled to prevent formatting errors
+    money_columns = []  # [col for col in columns if is_money_column(col)]
     
     formatted_results = []
     for row in results:
         formatted_row = {}
         for column, value in row.items():
             if column in money_columns and value is not None:
-                # Convert cents back to dollars for display
-                formatted_row[column] = format_cents_to_dollars(value)
+                try:
+                    # Convert cents back to dollars for display
+                    formatted_row[column] = format_cents_to_dollars(value)
+                except Exception as e:
+                    print(f"Error formatting money column '{column}' with value '{value}' (type: {type(value)}): {e}")
+                    # If formatting fails, return the original value
+                    formatted_row[column] = value
             else:
                 formatted_row[column] = value
         formatted_results.append(formatted_row)
@@ -1190,7 +1214,12 @@ def create_table_from_csv(conn, csv_file_path, table_name):
                     if is_money_column(header) and value and value.strip():
                         # Convert dollars to cents for money columns
                         cents_value = parse_money_to_cents(value)
-                        values.append(cents_value)
+                        if cents_value is not None:
+                            values.append(cents_value)
+                        else:
+                            # If money parsing failed, store as 0 or NULL
+                            print(f"Warning: Could not parse money value '{value}' in column '{header}', storing as NULL")
+                            values.append(None)
                     else:
                         # Keep original value exactly as-is
                         values.append(value if value else None)

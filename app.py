@@ -816,7 +816,9 @@ def data_upload():
                     if result.get('errors'):
                         flash(result['message'], 'warning')
                     else:
-                        flash(f'Successfully imported {result["tables_created"]} tables from {result["files_processed"]} CSV files', 'success')
+                        flash(f'Successfully imported {result["tables_created"]} tables from {result["files_processed"]} CSV files. Data Explorer updated with new schema.', 'success')
+                    # Redirect to Data Explorer after successful upload
+                    return redirect(url_for('data_explorer'))
                 else:
                     flash(f'Upload failed: {result["error"]}', 'error')
             except Exception as e:

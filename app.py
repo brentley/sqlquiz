@@ -82,19 +82,19 @@ def init_healthcare_database():
     import csv
     from datetime import datetime
     
-    # Check if database already exists and has healthcare data
+    # Check if database already exists and has any tables
     if os.path.exists(DATABASE):
         conn = sqlite3.connect(DATABASE)
         try:
-            # Check if healthcare tables exist and have data
-            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='patients'")
-            if cursor.fetchone():
-                cursor = conn.execute("SELECT COUNT(*) FROM patients")
-                patient_count = cursor.fetchone()[0]
-                if patient_count > 0:
-                    print(f"Healthcare database already exists with {patient_count} patients")
-                    conn.close()
-                    return
+            # Check if any tables exist (uploaded data takes precedence)
+            cursor = conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
+            table_count = cursor.fetchone()[0]
+            if table_count > 0:
+                cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+                existing_tables = [row[0] for row in cursor.fetchall()]
+                print(f"Healthcare database already exists with {table_count} tables: {existing_tables}")
+                conn.close()
+                return
         except:
             pass
         finally:

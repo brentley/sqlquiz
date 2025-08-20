@@ -907,11 +907,29 @@ def create_table_from_csv(conn, csv_file_path, table_name):
     """Create SQLite table from CSV file with 1:1 mapping - preserving original data"""
     try:
         with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
-            # Detect delimiter
+            # Detect delimiter with fallback options
             sample = csvfile.read(1024)
             csvfile.seek(0)
-            sniffer = csv.Sniffer()
-            delimiter = sniffer.sniff(sample).delimiter
+            
+            delimiter = ','  # Default to comma
+            try:
+                sniffer = csv.Sniffer()
+                dialect = sniffer.sniff(sample, delimiters=',\t;|')
+                delimiter = dialect.delimiter
+                print(f"Detected delimiter for {os.path.basename(csv_file_path)}: {repr(delimiter)}")
+            except Exception as e:
+                print(f"Could not detect delimiter for {os.path.basename(csv_file_path)}: {e}")
+                # Try common delimiters manually
+                delimiters = [',', '\t', ';', '|']
+                for test_delim in delimiters:
+                    test_line = sample.split('\n')[0] if '\n' in sample else sample
+                    if test_delim in test_line and test_line.count(test_delim) > 0:
+                        delimiter = test_delim
+                        print(f"Manually detected delimiter: {repr(delimiter)}")
+                        break
+                else:
+                    print(f"Using default delimiter: {repr(delimiter)}")
+                    print(f"Sample content: {repr(sample[:200])}")  # Show first 200 chars for debugging
             
             reader = csv.reader(csvfile, delimiter=delimiter)
             headers = next(reader)

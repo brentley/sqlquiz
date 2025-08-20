@@ -82,24 +82,42 @@ def init_user_database():
         try:
             test_conn = get_user_db_connection()
             # Quick check for problematic schemas
-            sessions_info = test_conn.execute("PRAGMA table_info(user_sessions)").fetchall()
-            sessions_columns = [col['name'] for col in sessions_info]
-            
-            # If we find the problematic session_id column, force regeneration
-            if 'session_id' in sessions_columns and 'session_token' not in sessions_columns:
-                print("Detected incompatible schema in user database. Force regenerating...")
-                force_regenerate = True
+            try:
+                sessions_info = test_conn.execute("PRAGMA table_info(user_sessions)").fetchall()
+                sessions_columns = [col['name'] for col in sessions_info]
+                print(f"Found existing user_sessions columns: {sessions_columns}")
+                
+                # If we find the problematic session_id column, force regeneration
+                if 'session_id' in sessions_columns and 'session_token' not in sessions_columns:
+                    print("Detected incompatible schema in user database. Force regenerating...")
+                    force_regenerate = True
+                elif sessions_columns and 'session_token' not in sessions_columns:
+                    print("User_sessions table missing session_token column. Force regenerating...")
+                    force_regenerate = True
+            except Exception as table_error:
+                print(f"Error checking user_sessions table: {table_error}")
+                # If table doesn't exist or has issues, that's fine - we'll create it
             
             test_conn.close()
         except Exception as e:
             print(f"Error checking existing database schema: {e}")
             force_regenerate = True
     
+    # ALWAYS force regenerate for now to ensure clean state
+    # TODO: Remove this once schema issues are resolved
+    if os.path.exists(USER_DATABASE):
+        print(f"FORCE: Removing user database to ensure clean schema: {USER_DATABASE}")
+        force_regenerate = True
+    
     # Force regenerate database if needed
     if force_regenerate:
-        print(f"Removing incompatible user database: {USER_DATABASE}")
+        print(f"Removing user database: {USER_DATABASE}")
         if os.path.exists(USER_DATABASE):
-            os.remove(USER_DATABASE)
+            try:
+                os.remove(USER_DATABASE)
+                print(f"Successfully removed old database: {USER_DATABASE}")
+            except Exception as e:
+                print(f"Error removing database: {e}")
         print("Creating fresh user database with correct schema...")
     
     conn = get_user_db_connection()

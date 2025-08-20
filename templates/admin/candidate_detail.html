@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Candidate Assessment - {{ username }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h2 mb-1">
+                    <i class="fas fa-user text-primary me-3"></i>Assessment Report
+                </h1>
+                <p class="text-muted">Detailed analysis for candidate: <strong>{{ username }}</strong></p>
+            </div>
+            <div>
+                <button class="btn btn-success me-2" onclick="exportReport()">
+                    <i class="fas fa-download me-2"></i>Export Report
+                </button>
+                <a href="{{ url_for('admin_candidates') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Candidates
+                </a>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div id="summaryCards">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading assessment data...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Challenge Progress -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-tasks me-2"></i>Challenge Progress
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="challengeProgress">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading challenge progress...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attempt History -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Query Attempt History
+                </h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="toggleQueryDetails()">
+                        <i class="fas fa-code me-1"></i>Show/Hide Queries
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="attemptHistory">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading attempt history...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let candidateData = null;
+let showQueries = false;
+
+// Load content when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadCandidateDetail();
+});
+
+function loadCandidateDetail() {
+    const username = '{{ username }}';
+    fetch(`/api/admin/candidate/${username}/detail`)
+        .then(response => response.json())
+        .then(data => {
+            candidateData = data;
+            displaySummary(data.summary);
+            displayChallengeProgress(data.challenge_progress);
+            displayAttemptHistory(data.attempt_history);
+        })
+        .catch(error => {
+            console.error('Error loading candidate details:', error);
+            document.body.innerHTML += '<div class="alert alert-danger">Error loading candidate data</div>';
+        });
+}
+
+function displaySummary(summary) {
+    const container = document.getElementById('summaryCards');
+    
+    const html = `
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card border-0 bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h3 class="mb-1">${summary.completed_challenges}</h3>
+                        <small>Challenges Completed</small>
+                        <div class="mt-2">
+                            <small>${summary.completion_rate}% completion rate</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 bg-success text-white">
+                    <div class="card-body text-center">
+                        <h3 class="mb-1">${summary.total_score}</h3>
+                        <small>Total Score</small>
+                        <div class="mt-2">
+                            <small>${summary.score_percentage}% of maximum</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 bg-warning text-white">
+                    <div class="card-body text-center">
+                        <h3 class="mb-1">${summary.total_attempts}</h3>
+                        <small>Total Attempts</small>
+                        <div class="mt-2">
+                            <small>${summary.avg_execution_time}ms avg time</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 bg-info text-white">
+                    <div class="card-body text-center">
+                        <h3 class="mb-1">${summary.total_hints_used}</h3>
+                        <small>Hints Used</small>
+                        <div class="mt-2">
+                            <small>Help-seeking behavior</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function displayChallengeProgress(challenges) {
+    const container = document.getElementById('challengeProgress');
+    
+    const levelNames = {1: 'Basic', 2: 'Intermediate', 3: 'Advanced', 4: 'Expert'};
+    const levelColors = {1: 'success', 2: 'warning', 3: 'danger', 4: 'dark'};
+    
+    let html = '<div class="row">';
+    
+    // Group challenges by difficulty level
+    const groupedChallenges = {};
+    challenges.forEach(challenge => {
+        const level = challenge.difficulty_level;
+        if (!groupedChallenges[level]) {
+            groupedChallenges[level] = [];
+        }
+        groupedChallenges[level].push(challenge);
+    });
+    
+    Object.keys(groupedChallenges).sort().forEach(level => {
+        const levelChallenges = groupedChallenges[level];
+        const levelName = levelNames[level] || `Level ${level}`;
+        const levelColor = levelColors[level] || 'primary';
+        
+        html += `
+            <div class="col-md-6 mb-4">
+                <div class="card border-0 border-start border-${levelColor} border-4">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0 text-${levelColor}">
+                            <i class="fas fa-layer-group me-2"></i>${levelName} Challenges
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Challenge</th>
+                                        <th>Status</th>
+                                        <th>Score</th>
+                                        <th>Attempts</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+        `;
+        
+        levelChallenges.forEach(challenge => {
+            const status = challenge.completed ? 
+                '<span class="badge bg-success">Completed</span>' : 
+                (challenge.attempts > 0 ? 
+                    '<span class="badge bg-warning">In Progress</span>' : 
+                    '<span class="badge bg-secondary">Not Started</span>');
+            
+            html += `
+                <tr>
+                    <td>
+                        <small>${challenge.title}</small>
+                        <br><span class="badge bg-secondary">${challenge.category}</span>
+                    </td>
+                    <td>${status}</td>
+                    <td>
+                        ${challenge.best_score || 0}
+                        <small class="text-muted">/${challenge.max_score}</small>
+                    </td>
+                    <td>
+                        ${challenge.attempts || 0}
+                        ${challenge.total_hints > 0 ? `<br><small class="text-muted">${challenge.total_hints} hints</small>` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function displayAttemptHistory(attempts) {
+    const container = document.getElementById('attemptHistory');
+    
+    if (attempts.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No attempt history available</p>';
+        return;
+    }
+    
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Challenge</th>
+                        <th>Result</th>
+                        <th>Performance</th>
+                        <th>Query</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    attempts.forEach((attempt, index) => {
+        const timestamp = new Date(attempt.created_at).toLocaleString();
+        const resultIcon = attempt.is_correct ? 
+            '<i class="fas fa-check-circle text-success"></i>' : 
+            '<i class="fas fa-times-circle text-danger"></i>';
+        
+        const levelColors = {1: 'success', 2: 'warning', 3: 'danger', 4: 'dark'};
+        const levelColor = levelColors[attempt.difficulty_level] || 'primary';
+        
+        html += `
+            <tr>
+                <td>
+                    <small>${timestamp}</small>
+                </td>
+                <td>
+                    <div>
+                        ${attempt.challenge_title}
+                        <br><span class="badge bg-${levelColor}">Level ${attempt.difficulty_level}</span>
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        ${resultIcon} 
+                        <strong>${attempt.score || 0} pts</strong>
+                        <br><small class="text-muted">
+                            ${attempt.result_count || 0} rows returned
+                            ${attempt.expected_result_count ? ` (expected ~${attempt.expected_result_count})` : ''}
+                        </small>
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        <small class="text-muted">
+                            ${Math.round(attempt.execution_time_ms || 0)}ms
+                            ${attempt.hints_used > 0 ? `<br>${attempt.hints_used} hints used` : ''}
+                        </small>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-info" 
+                            type="button" 
+                            data-bs-toggle="collapse" 
+                            data-bs-target="#query-${index}">
+                        <i class="fas fa-code me-1"></i>View Query
+                    </button>
+                    <div class="collapse mt-2" id="query-${index}">
+                        <div class="card card-body bg-light">
+                            <pre class="mb-0" style="font-size: 0.8rem;"><code>${attempt.query_text}</code></pre>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function toggleQueryDetails() {
+    showQueries = !showQueries;
+    const collapses = document.querySelectorAll('[id^="query-"]');
+    
+    collapses.forEach(collapse => {
+        if (showQueries) {
+            collapse.classList.add('show');
+        } else {
+            collapse.classList.remove('show');
+        }
+    });
+}
+
+function exportReport() {
+    if (!candidateData) return;
+    
+    const username = '{{ username }}';
+    fetch(`/api/admin/export/candidate/${username}`)
+        .then(response => response.json())
+        .then(data => {
+            // Create and download JSON file
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `candidate_${username}_detailed_assessment.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        })
+        .catch(error => {
+            console.error('Error exporting report:', error);
+            alert('Error exporting report. Please try again.');
+        });
+}
+</script>
+{% endblock %}

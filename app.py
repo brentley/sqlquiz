@@ -233,17 +233,12 @@ def create_user_tables(conn):
             session_id TEXT,
             challenge_id INTEGER,
             query_text TEXT NOT NULL,
-            success BOOLEAN NOT NULL,
-            error_message TEXT,
-            results_count INTEGER,
-            execution_time_ms REAL,
-            correctness_score INTEGER, -- 0-100 based on result similarity
-            efficiency_score INTEGER, -- 0-100 based on query performance
+            result_count INTEGER,
+            is_correct BOOLEAN NOT NULL,
+            score INTEGER DEFAULT 0,
             hints_used INTEGER DEFAULT 0,
-            attempt_number INTEGER DEFAULT 1,
-            time_to_solution_minutes REAL,
-            final_score INTEGER, -- calculated from correctness, efficiency, hints, time
-            is_solution BOOLEAN DEFAULT 0, -- marked when user submits as final answer
+            execution_time_ms REAL,
+            error_message TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id),
             FOREIGN KEY (challenge_id) REFERENCES challenges (id)
@@ -256,11 +251,11 @@ def create_user_tables(conn):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             challenge_id INTEGER,
-            status TEXT DEFAULT 'not_started', -- 'not_started', 'in_progress', 'completed', 'skipped'
             best_score INTEGER DEFAULT 0,
             total_attempts INTEGER DEFAULT 0,
-            hints_used INTEGER DEFAULT 0,
-            completed_at TIMESTAMP,
+            is_completed BOOLEAN DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id),
             FOREIGN KEY (challenge_id) REFERENCES challenges (id),
             UNIQUE(user_id, challenge_id)
@@ -1842,6 +1837,249 @@ def api_user_progress():
                 'score_percentage': round(total_score / max_possible_score * 100, 1) if max_possible_score > 0 else 0
             }
         })
+    finally:
+        conn.close()
+
+# Admin interface routes
+@app.route('/admin')
+@require_login
+def admin_dashboard():
+    """Admin dashboard - view all candidate assessments"""
+    return render_template('admin/dashboard.html')
+
+@app.route('/admin/candidates')
+@require_login
+def admin_candidates():
+    """View detailed candidate list"""
+    return render_template('admin/candidates.html')
+
+@app.route('/admin/candidate/<username>')
+@require_login
+def admin_candidate_detail(username):
+    """View detailed candidate assessment"""
+    return render_template('admin/candidate_detail.html', username=username)
+
+@app.route('/api/admin/candidates')
+@require_login
+def api_admin_candidates():
+    """Get all candidates and their assessment summary"""
+    conn = get_user_db_connection()
+    try:
+        # Get all users who have made challenge attempts
+        candidates = conn.execute('''
+            SELECT DISTINCT u.username, u.created_at as registration_date,
+                   COUNT(DISTINCT ca.challenge_id) as challenges_attempted,
+                   COUNT(DISTINCT CASE WHEN ca.is_correct = 1 THEN ca.challenge_id END) as challenges_completed,
+                   MAX(ca.score) as best_score,
+                   SUM(ca.score) as total_score,
+                   COUNT(ca.id) as total_attempts,
+                   AVG(ca.execution_time_ms) as avg_execution_time,
+                   SUM(ca.hints_used) as total_hints_used,
+                   MAX(ca.created_at) as last_activity
+            FROM users u
+            LEFT JOIN challenge_attempts ca ON u.id = ca.user_id
+            WHERE u.username != 'admin'
+            GROUP BY u.id, u.username, u.created_at
+            ORDER BY last_activity DESC NULLS LAST
+        ''').fetchall()
+        
+        candidate_list = []
+        for candidate in candidates:
+            # Calculate completion rate
+            completion_rate = 0
+            if candidate['challenges_attempted'] > 0:
+                completion_rate = round((candidate['challenges_completed'] or 0) / candidate['challenges_attempted'] * 100, 1)
+            
+            # Get challenge difficulty breakdown
+            difficulty_stats = conn.execute('''
+                SELECT c.difficulty_level, 
+                       COUNT(DISTINCT ca.challenge_id) as attempted,
+                       COUNT(DISTINCT CASE WHEN ca.is_correct = 1 THEN ca.challenge_id END) as completed
+                FROM challenge_attempts ca
+                JOIN challenges c ON ca.challenge_id = c.id
+                JOIN users u ON ca.user_id = u.id
+                WHERE u.username = ?
+                GROUP BY c.difficulty_level
+                ORDER BY c.difficulty_level
+            ''', (candidate['username'],)).fetchall()
+            
+            candidate_data = dict(candidate)
+            candidate_data['completion_rate'] = completion_rate
+            candidate_data['difficulty_breakdown'] = [dict(stat) for stat in difficulty_stats]
+            
+            candidate_list.append(candidate_data)
+        
+        return jsonify(candidate_list)
+    finally:
+        conn.close()
+
+@app.route('/api/admin/candidate/<username>/detail')
+@require_login
+def api_admin_candidate_detail(username):
+    """Get detailed candidate assessment data"""
+    conn = get_user_db_connection()
+    try:
+        # Get user ID
+        user = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
+        if not user:
+            return jsonify({'error': 'Candidate not found'}), 404
+        
+        user_id = user['id']
+        
+        # Get challenge progress
+        challenge_progress = conn.execute('''
+            SELECT c.id, c.title, c.difficulty_level, c.category, c.max_score,
+                   COUNT(ca.id) as attempts,
+                   MAX(CASE WHEN ca.is_correct = 1 THEN ca.score ELSE 0 END) as best_score,
+                   MAX(ca.is_correct) as completed,
+                   MIN(ca.execution_time_ms) as best_time,
+                   SUM(ca.hints_used) as total_hints,
+                   MAX(ca.created_at) as last_attempt
+            FROM challenges c
+            LEFT JOIN challenge_attempts ca ON c.id = ca.challenge_id AND ca.user_id = ?
+            WHERE c.is_active = 1
+            GROUP BY c.id, c.title, c.difficulty_level, c.category, c.max_score
+            ORDER BY c.difficulty_level, c.id
+        ''', (user_id,)).fetchall()
+        
+        # Get detailed attempt history
+        attempt_history = conn.execute('''
+            SELECT ca.id, ca.challenge_id, c.title as challenge_title, 
+                   ca.query_text, ca.is_correct, ca.score, ca.result_count,
+                   ca.execution_time_ms, ca.hints_used, ca.created_at,
+                   c.difficulty_level, c.expected_result_count
+            FROM challenge_attempts ca
+            JOIN challenges c ON ca.challenge_id = c.id
+            WHERE ca.user_id = ?
+            ORDER BY ca.created_at DESC
+        ''', (user_id,)).fetchall()
+        
+        # Calculate overall statistics
+        total_challenges = len([p for p in challenge_progress if p['attempts'] > 0])
+        completed_challenges = len([p for p in challenge_progress if p['completed']])
+        total_score = sum(p['best_score'] or 0 for p in challenge_progress)
+        max_possible_score = sum(p['max_score'] for p in challenge_progress)
+        
+        return jsonify({
+            'username': username,
+            'challenge_progress': [dict(p) for p in challenge_progress],
+            'attempt_history': [dict(a) for a in attempt_history],
+            'summary': {
+                'total_challenges_attempted': total_challenges,
+                'completed_challenges': completed_challenges,
+                'completion_rate': round(completed_challenges / total_challenges * 100, 1) if total_challenges > 0 else 0,
+                'total_score': total_score,
+                'max_possible_score': max_possible_score,
+                'score_percentage': round(total_score / max_possible_score * 100, 1) if max_possible_score > 0 else 0,
+                'total_attempts': len(attempt_history),
+                'avg_execution_time': round(sum(a['execution_time_ms'] for a in attempt_history) / len(attempt_history), 1) if attempt_history else 0,
+                'total_hints_used': sum(a['hints_used'] for a in attempt_history)
+            }
+        })
+    finally:
+        conn.close()
+
+@app.route('/api/admin/analytics')
+@require_login
+def api_admin_analytics():
+    """Get overall assessment analytics"""
+    conn = get_user_db_connection()
+    try:
+        # Overall statistics
+        overall_stats = conn.execute('''
+            SELECT 
+                COUNT(DISTINCT u.id) as total_candidates,
+                COUNT(DISTINCT ca.challenge_id) as challenges_attempted,
+                COUNT(DISTINCT CASE WHEN ca.is_correct = 1 THEN ca.challenge_id END) as challenges_completed,
+                AVG(ca.score) as avg_score,
+                AVG(ca.execution_time_ms) as avg_execution_time,
+                COUNT(ca.id) as total_attempts
+            FROM users u
+            LEFT JOIN challenge_attempts ca ON u.id = ca.user_id
+            WHERE u.username != 'admin'
+        ''').fetchone()
+        
+        # Challenge difficulty statistics
+        difficulty_stats = conn.execute('''
+            SELECT c.difficulty_level,
+                   COUNT(DISTINCT ca.user_id) as candidates_attempted,
+                   COUNT(DISTINCT CASE WHEN ca.is_correct = 1 THEN ca.user_id END) as candidates_completed,
+                   AVG(ca.score) as avg_score,
+                   COUNT(ca.id) as total_attempts
+            FROM challenges c
+            LEFT JOIN challenge_attempts ca ON c.id = ca.challenge_id
+            GROUP BY c.difficulty_level
+            ORDER BY c.difficulty_level
+        ''').fetchall()
+        
+        # Most challenging problems
+        challenge_stats = conn.execute('''
+            SELECT c.title, c.difficulty_level,
+                   COUNT(ca.id) as total_attempts,
+                   COUNT(CASE WHEN ca.is_correct = 1 THEN 1 END) as successful_attempts,
+                   AVG(ca.score) as avg_score,
+                   AVG(ca.execution_time_ms) as avg_time,
+                   AVG(ca.hints_used) as avg_hints
+            FROM challenges c
+            LEFT JOIN challenge_attempts ca ON c.id = ca.challenge_id
+            WHERE c.is_active = 1
+            GROUP BY c.id, c.title, c.difficulty_level
+            ORDER BY (COUNT(CASE WHEN ca.is_correct = 1 THEN 1 END) * 1.0 / NULLIF(COUNT(ca.id), 0)) ASC
+        ''').fetchall()
+        
+        return jsonify({
+            'overall': dict(overall_stats),
+            'difficulty_breakdown': [dict(stat) for stat in difficulty_stats],
+            'challenge_difficulty_ranking': [dict(stat) for stat in challenge_stats]
+        })
+    finally:
+        conn.close()
+
+@app.route('/api/admin/export/candidate/<username>')
+@require_login
+def api_admin_export_candidate(username):
+    """Export candidate assessment report"""
+    conn = get_user_db_connection()
+    try:
+        # Get detailed data (reuse existing endpoint logic)
+        user = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
+        if not user:
+            return jsonify({'error': 'Candidate not found'}), 404
+        
+        # Generate assessment report
+        report = {
+            'candidate': username,
+            'assessment_date': datetime.now().isoformat(),
+            'challenges': [],
+            'summary': {}
+        }
+        
+        # Get challenge attempts with full details
+        attempts = conn.execute('''
+            SELECT c.title, c.difficulty_level, c.category, ca.query_text, 
+                   ca.is_correct, ca.score, ca.execution_time_ms, ca.hints_used,
+                   ca.created_at, c.expected_result_count, ca.result_count
+            FROM challenge_attempts ca
+            JOIN challenges c ON ca.challenge_id = c.id
+            JOIN users u ON ca.user_id = u.id
+            WHERE u.username = ?
+            ORDER BY ca.created_at
+        ''', (username,)).fetchall()
+        
+        for attempt in attempts:
+            report['challenges'].append({
+                'challenge': attempt['title'],
+                'difficulty': attempt['difficulty_level'],
+                'category': attempt['category'],
+                'query': attempt['query_text'],
+                'correct': bool(attempt['is_correct']),
+                'score': attempt['score'],
+                'execution_time_ms': attempt['execution_time_ms'],
+                'hints_used': attempt['hints_used'],
+                'timestamp': attempt['created_at']
+            })
+        
+        return jsonify(report)
     finally:
         conn.close()
 

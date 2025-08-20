@@ -293,6 +293,88 @@ footer {
     margin-top: 1rem;
 }
 
+/* Admin interface styling */
+.admin-nav-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.admin-nav-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.admin-stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.candidate-progress-bar {
+    height: 8px;
+    border-radius: 4px;
+}
+
+.query-code {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.875rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.attempt-status-correct {
+    color: #198754;
+}
+
+.attempt-status-incorrect {
+    color: #dc3545;
+}
+
+.difficulty-badge-1 {
+    background-color: #198754;
+}
+
+.difficulty-badge-2 {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.difficulty-badge-3 {
+    background-color: #dc3545;
+}
+
+.difficulty-badge-4 {
+    background-color: #6f42c1;
+}
+
+.admin-summary-card {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.candidate-detail-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+}
+
+.performance-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.export-button {
+    position: sticky;
+    top: 1rem;
+    z-index: 100;
+}
+
 /* Schema modal styling */
 .modal-xl {
     max-width: 1200px;

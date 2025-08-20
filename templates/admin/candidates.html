@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}Candidate Management - Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h2 mb-1">
+                    <i class="fas fa-users text-primary me-3"></i>Candidate Management
+                </h1>
+                <p class="text-muted">View and analyze candidate assessment results</p>
+            </div>
+            <div>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- Filters and Search -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" class="form-control" id="searchCandidates" 
+                                   placeholder="Search candidates by username...">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="completionFilter">
+                            <option value="">All Completion Rates</option>
+                            <option value="high">High (80%+)</option>
+                            <option value="medium">Medium (50-79%)</option>
+                            <option value="low">Low (<50%)</option>
+                            <option value="none">No Attempts</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="sortBy">
+                            <option value="last_activity">Sort by Last Activity</option>
+                            <option value="total_score">Sort by Total Score</option>
+                            <option value="completion_rate">Sort by Completion Rate</option>
+                            <option value="username">Sort by Username</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Candidates Table -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Assessment Results
+                    <span id="candidateCount" class="badge bg-primary ms-2">0</span>
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div id="candidatesTable">
+                    <div class="text-center p-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading candidates...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allCandidates = [];
+let filteredCandidates = [];
+
+// Load content when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadCandidates();
+    
+    // Set up event listeners for filtering and sorting
+    document.getElementById('searchCandidates').addEventListener('input', filterCandidates);
+    document.getElementById('completionFilter').addEventListener('change', filterCandidates);
+    document.getElementById('sortBy').addEventListener('change', filterCandidates);
+});
+
+function loadCandidates() {
+    fetch('/api/admin/candidates')
+        .then(response => response.json())
+        .then(candidates => {
+            allCandidates = candidates;
+            filteredCandidates = [...candidates];
+            displayCandidates();
+        })
+        .catch(error => {
+            console.error('Error loading candidates:', error);
+            document.getElementById('candidatesTable').innerHTML = 
+                '<div class="alert alert-danger m-3">Error loading candidate data</div>';
+        });
+}
+
+function filterCandidates() {
+    const searchTerm = document.getElementById('searchCandidates').value.toLowerCase();
+    const completionFilter = document.getElementById('completionFilter').value;
+    const sortBy = document.getElementById('sortBy').value;
+    
+    // Filter by search term
+    filteredCandidates = allCandidates.filter(candidate => 
+        candidate.username.toLowerCase().includes(searchTerm)
+    );
+    
+    // Filter by completion rate
+    if (completionFilter) {
+        filteredCandidates = filteredCandidates.filter(candidate => {
+            const rate = candidate.completion_rate || 0;
+            switch (completionFilter) {
+                case 'high': return rate >= 80;
+                case 'medium': return rate >= 50 && rate < 80;
+                case 'low': return rate > 0 && rate < 50;
+                case 'none': return rate === 0;
+                default: return true;
+            }
+        });
+    }
+    
+    // Sort candidates
+    filteredCandidates.sort((a, b) => {
+        switch (sortBy) {
+            case 'username':
+                return a.username.localeCompare(b.username);
+            case 'total_score':
+                return (b.total_score || 0) - (a.total_score || 0);
+            case 'completion_rate':
+                return (b.completion_rate || 0) - (a.completion_rate || 0);
+            case 'last_activity':
+            default:
+                const aDate = new Date(a.last_activity || 0);
+                const bDate = new Date(b.last_activity || 0);
+                return bDate - aDate;
+        }
+    });
+    
+    displayCandidates();
+}
+
+function displayCandidates() {
+    const container = document.getElementById('candidatesTable');
+    const countElement = document.getElementById('candidateCount');
+    
+    countElement.textContent = filteredCandidates.length;
+    
+    if (filteredCandidates.length === 0) {
+        container.innerHTML = `
+            <div class="text-center p-5">
+                <i class="fas fa-users text-muted fa-3x mb-3"></i>
+                <p class="text-muted">No candidates found matching your criteria.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Candidate</th>
+                        <th>Progress</th>
+                        <th>Score</th>
+                        <th>Performance</th>
+                        <th>Last Activity</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    filteredCandidates.forEach(candidate => {
+        const registrationDate = new Date(candidate.registration_date).toLocaleDateString();
+        const lastActivity = candidate.last_activity ? 
+            new Date(candidate.last_activity).toLocaleString() : 'Never';
+        
+        // Progress bar color based on completion rate
+        let progressColor = 'bg-danger';
+        if (candidate.completion_rate >= 80) progressColor = 'bg-success';
+        else if (candidate.completion_rate >= 50) progressColor = 'bg-warning';
+        
+        // Difficulty breakdown badges
+        let difficultyBadges = '';
+        if (candidate.difficulty_breakdown) {
+            const levelNames = {1: 'Basic', 2: 'Int', 3: 'Adv', 4: 'Expert'};
+            const levelColors = {1: 'success', 2: 'warning', 3: 'danger', 4: 'dark'};
+            
+            candidate.difficulty_breakdown.forEach(level => {
+                difficultyBadges += `
+                    <span class="badge bg-${levelColors[level.difficulty_level]} me-1" 
+                          title="${levelNames[level.difficulty_level]}: ${level.completed}/${level.attempted}">
+                        ${level.completed}/${level.attempted}
+                    </span>
+                `;
+            });
+        }
+        
+        html += `
+            <tr>
+                <td>
+                    <div>
+                        <strong>${candidate.username}</strong>
+                        <br><small class="text-muted">Registered: ${registrationDate}</small>
+                    </div>
+                </td>
+                <td>
+                    <div class="mb-1">
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar ${progressColor}" 
+                                 role="progressbar" 
+                                 style="width: ${candidate.completion_rate || 0}%"
+                                 title="${candidate.completion_rate || 0}% completion">
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            ${candidate.challenges_completed || 0}/${candidate.challenges_attempted || 0} challenges
+                        </small>
+                    </div>
+                    <div>${difficultyBadges}</div>
+                </td>
+                <td>
+                    <div>
+                        <span class="badge bg-primary fs-6">${candidate.total_score || 0}</span>
+                        <br><small class="text-muted">Best: ${candidate.best_score || 0}</small>
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        <small class="text-muted">
+                            ${candidate.total_attempts || 0} attempts<br>
+                            ${Math.round(candidate.avg_execution_time || 0)}ms avg<br>
+                            ${candidate.total_hints_used || 0} hints used
+                        </small>
+                    </div>
+                </td>
+                <td>
+                    <small>${lastActivity}</small>
+                </td>
+                <td>
+                    <div class="btn-group-vertical btn-group-sm">
+                        <a href="/admin/candidate/${candidate.username}" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-eye me-1"></i>View Details
+                        </a>
+                        <button class="btn btn-outline-success btn-sm" 
+                                onclick="exportCandidate('${candidate.username}')">
+                            <i class="fas fa-download me-1"></i>Export
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function exportCandidate(username) {
+    fetch(`/api/admin/export/candidate/${username}`)
+        .then(response => response.json())
+        .then(data => {
+            // Create and download JSON file
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `candidate_${username}_assessment.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        })
+        .catch(error => {
+            console.error('Error exporting candidate data:', error);
+            alert('Error exporting candidate data. Please try again.');
+        });
+}
+</script>
+{% endblock %}

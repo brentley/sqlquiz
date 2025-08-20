@@ -315,6 +315,7 @@ function displayResults(data) {
     totalCount = data.total_count;
     currentPage = data.page || 1;
     rowsPerPage = data.rows_per_page || 1000;
+    const isUserLimited = data.user_limited || false;
     
     const totalPages = Math.ceil(totalCount / rowsPerPage);
     const currentResults = data.results;
@@ -327,8 +328,9 @@ function displayResults(data) {
                     <div>
                         <i class="fas fa-check-circle text-success me-2"></i>
                         <strong>Query Results</strong>
-                        <span class="badge bg-success ms-2">${totalCount.toLocaleString()} total rows</span>
-                        <span class="badge bg-info ms-1">Page ${currentPage} of ${totalPages}</span>
+                        <span class="badge bg-success ms-2">${currentResults.length.toLocaleString()} rows</span>
+                        ${!isUserLimited && totalPages > 1 ? `<span class="badge bg-info ms-1">Page ${currentPage} of ${totalPages} (${totalCount.toLocaleString()} total)</span>` : ''}
+                        ${isUserLimited ? '<span class="badge bg-secondary ms-1">User limited</span>' : ''}
                     </div>
                     <button class="btn btn-outline-secondary btn-sm" onclick="exportResults()">
                         <i class="fas fa-download me-2"></i>Export CSV
@@ -354,8 +356,8 @@ function displayResults(data) {
             </div>
         `;
     } else {
-        // Add pagination controls if needed
-        if (totalPages > 1) {
+        // Add pagination controls only if NOT user limited and multiple pages exist
+        if (!isUserLimited && totalPages > 1) {
             html += `
                 <div class="px-3 pt-3 pb-2 bg-light border-bottom">
                     <div class="d-flex justify-content-between align-items-center">

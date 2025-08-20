@@ -75,7 +75,13 @@ def remove_sql_comments(query):
 
 def execute_safe_query(query, timeout_seconds=60, page=1, rows_per_page=1000):
     """
-    Execute a SQL query safely with validation, timeout, and pagination.
+    Execute a SQL query safely with validation, timeout, and smart pagination.
+    
+    Smart pagination rules:
+    1. If query has LIMIT <= 5000: Honor user's LIMIT exactly, no pagination
+    2. If query has no LIMIT: Apply server pagination for performance
+    3. If query has LIMIT > 5000: Apply pagination with user's LIMIT as max
+    
     Returns (success, data, error_message, execution_time_ms, total_count, page_count)
     """
     # Validate query first
@@ -93,51 +99,118 @@ def execute_safe_query(query, timeout_seconds=60, page=1, rows_per_page=1000):
         
         # Check if query already has LIMIT clause
         query_clean = query.strip().rstrip(';')
-        has_limit = re.search(r'\bLIMIT\s+\d+', query_clean, re.IGNORECASE)
+        limit_match = re.search(r'\bLIMIT\s+(\d+)', query_clean, re.IGNORECASE)
         has_offset = re.search(r'\bOFFSET\s+\d+', query_clean, re.IGNORECASE)
         
-        if has_limit:
-            # If query already has LIMIT, execute as-is for total count and pagination
-            # Remove existing LIMIT/OFFSET for counting
-            count_query_base = re.sub(r'\s+(LIMIT\s+\d+(\s+OFFSET\s+\d+)?)\s*$', '', query_clean, flags=re.IGNORECASE).strip()
-            count_query = f"SELECT COUNT(*) as total_count FROM ({count_query_base}) as subquery"
+        # Define pagination threshold - only paginate if results would be larger than this
+        PAGINATION_THRESHOLD = 5000
+        
+        if limit_match:
+            user_limit = int(limit_match.group(1))
+            
+            if user_limit <= PAGINATION_THRESHOLD:
+                # Small LIMIT - honor user's intent exactly, no pagination
+                cursor = conn.execute(query_clean)
+                results = cursor.fetchall()
+                
+                # Get column names
+                columns = [description[0] for description in cursor.description] if cursor.description else []
+                
+                # Convert to list of dictionaries
+                data = []
+                for row in results:
+                    data.append(dict(zip(columns, row)))
+                
+                execution_time_ms = (time.time() - start_time) * 1000
+                page_count = len(data)
+                total_count = page_count  # For small limits, what we got is the total
+                
+                conn.close()
+                
+                # Return with pagination disabled (page info shows no pagination needed)
+                return True, {
+                    'results': data, 
+                    'columns': columns, 
+                    'total_count': total_count, 
+                    'page': 1, 
+                    'rows_per_page': user_limit,
+                    'user_limited': True  # Flag to indicate user specified the limit
+                }, None, execution_time_ms, total_count, page_count
+            
+            else:
+                # Large LIMIT - apply pagination but respect user's maximum
+                # Remove existing LIMIT/OFFSET for counting
+                count_query_base = re.sub(r'\s+(LIMIT\s+\d+(\s+OFFSET\s+\d+)?)\s*$', '', query_clean, flags=re.IGNORECASE).strip()
+                count_query = f"SELECT COUNT(*) as total_count FROM ({count_query_base}) as subquery"
+                
+                # Get total count, but cap at user's LIMIT
+                count_cursor = conn.execute(count_query)
+                full_count = count_cursor.fetchone()[0]
+                total_count = min(full_count, user_limit)  # Respect user's LIMIT
+                
+                # Calculate pagination within user's LIMIT
+                offset = (page - 1) * rows_per_page
+                
+                # Don't go beyond user's LIMIT
+                if offset >= user_limit:
+                    # Requested page is beyond user's LIMIT
+                    data = []
+                    columns = []
+                    page_count = 0
+                else:
+                    # Adjust rows_per_page to not exceed user's LIMIT
+                    effective_limit = min(rows_per_page, user_limit - offset)
+                    base_query = re.sub(r'\s+(LIMIT\s+\d+(\s+OFFSET\s+\d+)?)\s*$', '', query_clean, flags=re.IGNORECASE).strip()
+                    paginated_query = f"{base_query} LIMIT {effective_limit} OFFSET {offset}"
+                    
+                    cursor = conn.execute(paginated_query)
+                    results = cursor.fetchall()
+                    
+                    # Get column names
+                    columns = [description[0] for description in cursor.description] if cursor.description else []
+                    
+                    # Convert to list of dictionaries
+                    data = []
+                    for row in results:
+                        data.append(dict(zip(columns, row)))
+                    
+                    page_count = len(data)
+        
         else:
-            # No LIMIT clause, wrap entire query for counting
+            # No LIMIT clause - apply normal server-side pagination
             count_query = f"SELECT COUNT(*) as total_count FROM ({query_clean}) as subquery"
-        
-        # Get total count
-        count_cursor = conn.execute(count_query)
-        total_count = count_cursor.fetchone()[0]
-        
-        # Calculate pagination
-        offset = (page - 1) * rows_per_page
-        
-        # Execute the paginated query
-        if has_limit:
-            # If original query has LIMIT, replace it with our pagination
-            base_query = re.sub(r'\s+(LIMIT\s+\d+(\s+OFFSET\s+\d+)?)\s*$', '', query_clean, flags=re.IGNORECASE).strip()
-            paginated_query = f"{base_query} LIMIT {rows_per_page} OFFSET {offset}"
-        else:
-            # No existing LIMIT, add our pagination
+            count_cursor = conn.execute(count_query)
+            total_count = count_cursor.fetchone()[0]
+            
+            # Calculate pagination
+            offset = (page - 1) * rows_per_page
             paginated_query = f"{query_clean} LIMIT {rows_per_page} OFFSET {offset}"
-        
-        cursor = conn.execute(paginated_query)
-        results = cursor.fetchall()
-        
-        # Get column names
-        columns = [description[0] for description in cursor.description] if cursor.description else []
-        
-        # Convert to list of dictionaries
-        data = []
-        for row in results:
-            data.append(dict(zip(columns, row)))
+            
+            cursor = conn.execute(paginated_query)
+            results = cursor.fetchall()
+            
+            # Get column names
+            columns = [description[0] for description in cursor.description] if cursor.description else []
+            
+            # Convert to list of dictionaries
+            data = []
+            for row in results:
+                data.append(dict(zip(columns, row)))
+            
+            page_count = len(data)
         
         execution_time_ms = (time.time() - start_time) * 1000
-        page_count = len(data)
         
         conn.close()
         
-        return True, {'results': data, 'columns': columns, 'total_count': total_count, 'page': page, 'rows_per_page': rows_per_page}, None, execution_time_ms, total_count, page_count
+        return True, {
+            'results': data, 
+            'columns': columns, 
+            'total_count': total_count, 
+            'page': page, 
+            'rows_per_page': rows_per_page,
+            'user_limited': limit_match is not None and int(limit_match.group(1)) <= PAGINATION_THRESHOLD
+        }, None, execution_time_ms, total_count, page_count
     
     except Exception as e:
         execution_time_ms = (time.time() - start_time) * 1000

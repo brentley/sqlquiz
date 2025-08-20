@@ -262,8 +262,8 @@ def parse_money_to_cents(money_str):
 def is_money_column(column_name):
     """Detect if a column contains monetary values based on name"""
     money_indicators = [
-        'charge', 'payment', 'balance', 'amount', 'cost', 'price', 
-        'total', 'revenue', 'reimbursement', 'adjustment', 'debt'
+        'charge', 'payment', 'balance', 'amount', 'amt', 'cost', 'price', 
+        'total', 'revenue', 'reimbursement', 'adjustment', 'debt', 'paid'
     ]
     
     column_lower = column_name.lower()
@@ -792,6 +792,131 @@ def api_sample_data(table_name):
         data = [dict(row) for row in rows]
         
         return jsonify(data)
+    finally:
+        conn.close()
+
+@app.route('/api/sample-queries')
+@require_login
+def api_sample_queries():
+    """Generate smart sample queries based on current schema"""
+    conn = get_db_connection()
+    try:
+        # Get table names and their schemas
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
+        table_names = [table['name'] for table in tables]
+        
+        if not table_names:
+            return jsonify({
+                'basic': '-- No tables available\n-- Upload some CSV files first!',
+                'join': '-- No tables available\n-- Upload some CSV files first!',
+                'aggregate': '-- No tables available\n-- Upload some CSV files first!'
+            })
+        
+        schema_info = {}
+        for table_name in table_names:
+            columns = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+            schema_info[table_name] = [
+                {'name': col['name'], 'type': col['type'], 'pk': bool(col['pk'])}
+                for col in columns
+            ]
+        
+        # Generate sample queries
+        queries = {}
+        
+        # Basic query
+        first_table = table_names[0]
+        queries['basic'] = f"-- Browse {first_table} data\nSELECT * FROM {first_table} LIMIT 10;"
+        
+        # JOIN query - try to find tables with potential relationships
+        if len(table_names) >= 2:
+            table1 = table_names[0]
+            table2 = table_names[1]
+            
+            # Look for common column names that might be join keys
+            t1_columns = [col['name'] for col in schema_info[table1]]
+            t2_columns = [col['name'] for col in schema_info[table2]]
+            
+            # Find potential join columns (common names or ID-like columns)
+            join_column = None
+            for col in t1_columns:
+                if col in t2_columns:
+                    join_column = col
+                    break
+            
+            # If no exact match, look for ID patterns
+            if not join_column:
+                for col1 in t1_columns:
+                    for col2 in t2_columns:
+                        if ('id' in col1.lower() and 'id' in col2.lower()) or \
+                           (col1.lower().endswith('_id') and col2.lower().endswith('_id')):
+                            join_column = f"{col1} = {col2}"
+                            break
+                    if join_column:
+                        break
+            
+            if join_column:
+                if '=' in join_column:
+                    queries['join'] = f"""-- JOIN example using related tables
+SELECT *
+FROM {table1} t1
+JOIN {table2} t2 ON t1.{join_column.split(' = ')[0]} = t2.{join_column.split(' = ')[1]}
+LIMIT 15;"""
+                else:
+                    queries['join'] = f"""-- JOIN example using common column
+SELECT *
+FROM {table1} t1
+JOIN {table2} t2 ON t1.{join_column} = t2.{join_column}
+LIMIT 15;"""
+            else:
+                queries['join'] = f"""-- Example JOIN query (adjust column names as needed)
+SELECT *
+FROM {table1} t1
+JOIN {table2} t2 ON t1.column_name = t2.column_name
+LIMIT 15;"""
+        else:
+            queries['join'] = f"""-- JOIN example (need 2+ tables)
+SELECT *
+FROM {first_table} t1
+JOIN another_table t2 ON t1.id = t2.id
+LIMIT 15;"""
+        
+        # Aggregation query - find good grouping columns
+        first_table = table_names[0]
+        columns = schema_info[first_table]
+        
+        # Look for good grouping columns (text columns, not IDs)
+        group_column = None
+        count_column = None
+        
+        for col in columns:
+            col_name = col['name'].lower()
+            if col['type'] == 'TEXT' and not col_name.endswith('_id') and not col_name == 'id':
+                group_column = col['name']
+                break
+        
+        # Look for ID or countable columns
+        for col in columns:
+            col_name = col['name'].lower()
+            if col_name.endswith('_id') or col_name == 'id' or col['pk']:
+                count_column = col['name']
+                break
+        
+        if not group_column:
+            group_column = columns[0]['name'] if columns else 'column_name'
+        if not count_column:
+            count_column = columns[0]['name'] if columns else 'id'
+        
+        queries['aggregate'] = f"""-- Aggregation example for {first_table}
+SELECT 
+    {group_column},
+    COUNT(*) as record_count,
+    COUNT(DISTINCT {count_column}) as unique_count
+FROM {first_table}
+GROUP BY {group_column}
+ORDER BY record_count DESC;"""
+        
+        return jsonify(queries)
+        
     finally:
         conn.close()
 

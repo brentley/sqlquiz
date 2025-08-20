@@ -91,8 +91,21 @@ def execute_safe_query(query, timeout_seconds=60, page=1, rows_per_page=1000):
         # Set a timeout for the query
         conn.execute(f"PRAGMA busy_timeout = {timeout_seconds * 1000}")
         
-        # First, get the total count by wrapping the query
-        count_query = f"SELECT COUNT(*) as total_count FROM ({query}) as subquery"
+        # Check if query already has LIMIT clause
+        query_clean = query.strip().rstrip(';')
+        has_limit = re.search(r'\bLIMIT\s+\d+', query_clean, re.IGNORECASE)
+        has_offset = re.search(r'\bOFFSET\s+\d+', query_clean, re.IGNORECASE)
+        
+        if has_limit:
+            # If query already has LIMIT, execute as-is for total count and pagination
+            # Remove existing LIMIT/OFFSET for counting
+            count_query_base = re.sub(r'\s+(LIMIT\s+\d+(\s+OFFSET\s+\d+)?)\s*$', '', query_clean, flags=re.IGNORECASE).strip()
+            count_query = f"SELECT COUNT(*) as total_count FROM ({count_query_base}) as subquery"
+        else:
+            # No LIMIT clause, wrap entire query for counting
+            count_query = f"SELECT COUNT(*) as total_count FROM ({query_clean}) as subquery"
+        
+        # Get total count
         count_cursor = conn.execute(count_query)
         total_count = count_cursor.fetchone()[0]
         
@@ -100,7 +113,14 @@ def execute_safe_query(query, timeout_seconds=60, page=1, rows_per_page=1000):
         offset = (page - 1) * rows_per_page
         
         # Execute the paginated query
-        paginated_query = f"{query} LIMIT {rows_per_page} OFFSET {offset}"
+        if has_limit:
+            # If original query has LIMIT, replace it with our pagination
+            base_query = re.sub(r'\s+(LIMIT\s+\d+(\s+OFFSET\s+\d+)?)\s*$', '', query_clean, flags=re.IGNORECASE).strip()
+            paginated_query = f"{base_query} LIMIT {rows_per_page} OFFSET {offset}"
+        else:
+            # No existing LIMIT, add our pagination
+            paginated_query = f"{query_clean} LIMIT {rows_per_page} OFFSET {offset}"
+        
         cursor = conn.execute(paginated_query)
         results = cursor.fetchall()
         
@@ -122,6 +142,10 @@ def execute_safe_query(query, timeout_seconds=60, page=1, rows_per_page=1000):
     except Exception as e:
         execution_time_ms = (time.time() - start_time) * 1000
         error_message = str(e)
+        
+        # For debugging, let's see the actual error temporarily
+        print(f"SQL Error: {error_message}")
+        print(f"Query: {query}")
         
         # Sanitize error message to avoid information disclosure
         if "no such table" in error_message.lower():

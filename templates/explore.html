@@ -60,13 +60,9 @@
                 
                 <hr class="my-3">
                 
-                <h6 class="small">Common Tables:</h6>
-                <ul class="list-unstyled small">
-                    <li><code>patients</code></li>
-                    <li><code>invoices</code></li>
-                    <li><code>invoice_details</code></li>
-                    <li><code>insurance_plans</code></li>
-                    <li><code>service_lines</code></li>
+                <h6 class="small">Available Tables:</h6>
+                <ul id="tablesList" class="list-unstyled small">
+                    <li class="text-muted"><small>Loading tables...</small></li>
                 </ul>
             </div>
         </div>
@@ -88,7 +84,7 @@
             <div class="card-body p-0">
                 <textarea id="sqlEditor" class="form-control border-0" 
                           placeholder="Enter your SQL query here...
-Example: SELECT * FROM patients LIMIT 10;">SELECT * FROM patients LIMIT 10;</textarea>
+Example: SELECT * FROM table_name LIMIT 10;">-- Loading available tables...</textarea>
             </div>
         </div>
 
@@ -125,39 +121,27 @@ Example: SELECT * FROM patients LIMIT 10;">SELECT * FROM patients LIMIT 10;</tex
 {% block scripts %}
 <script>
 let sqlEditor;
+let availableTables = [];
 
-// Sample queries
-const sampleQueries = {
-    basic: `-- Basic patient information
-SELECT patient_id, date_of_birth, billing_office 
-FROM patients 
-LIMIT 10;`,
+// Dynamic sample queries - will be updated based on available tables
+let sampleQueries = {
+    basic: `-- Browse available data
+SELECT * FROM {table} LIMIT 10;`,
     
-    join: `-- Invoices with patient information
-SELECT 
-    i.invoice_id,
-    i.patient_id,
-    p.date_of_birth,
-    i.service_line_code,
-    i.invoice_total_charges,
-    i.ar_status
-FROM invoices i
-JOIN patients p ON i.patient_id = p.patient_id
-WHERE i.invoice_total_charges > 100
-ORDER BY i.invoice_total_charges DESC
+    join: `-- Example JOIN query (adjust table/column names as needed)
+SELECT *
+FROM {table1} t1
+JOIN {table2} t2 ON t1.{key_column} = t2.{key_column}
 LIMIT 15;`,
     
-    aggregate: `-- Revenue summary by service line
+    aggregate: `-- Example aggregation query (adjust table/column names as needed)
 SELECT 
-    sl.service_line_name,
-    COUNT(i.invoice_id) as invoice_count,
-    SUM(i.invoice_total_charges) as total_charges,
-    AVG(i.invoice_total_charges) as avg_charges,
-    SUM(i.invoice_total_payments) as total_payments
-FROM invoices i
-JOIN service_lines sl ON i.service_line_code = sl.service_line_code
-GROUP BY sl.service_line_code, sl.service_line_name
-ORDER BY total_charges DESC;`
+    {group_column},
+    COUNT(*) as record_count,
+    COUNT(DISTINCT {key_column}) as unique_keys
+FROM {table}
+GROUP BY {group_column}
+ORDER BY record_count DESC;`
 };
 
 // Initialize CodeMirror editor
@@ -176,7 +160,82 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     sqlEditor.setSize(null, 200);
+    
+    // Load available tables and update UI
+    loadAvailableTables();
 });
+
+// Load available tables from the database
+function loadAvailableTables() {
+    fetch('/api/tables')
+        .then(response => response.json())
+        .then(tables => {
+            availableTables = tables;
+            updateTablesList(tables);
+            updateSampleQueries(tables);
+            updateDefaultQuery(tables);
+        })
+        .catch(error => {
+            console.error('Error loading tables:', error);
+            document.getElementById('tablesList').innerHTML = 
+                '<li class="text-danger"><small>Error loading tables</small></li>';
+        });
+}
+
+// Update the tables list in the sidebar
+function updateTablesList(tables) {
+    const tablesList = document.getElementById('tablesList');
+    if (tables.length === 0) {
+        tablesList.innerHTML = '<li class="text-muted"><small>No tables found</small></li>';
+        return;
+    }
+    
+    const tablesHtml = tables.map(table => 
+        `<li><code onclick="insertTableName('${table}')" style="cursor: pointer; color: #0d6efd;" title="Click to insert into query">${table}</code></li>`
+    ).join('');
+    
+    tablesList.innerHTML = tablesHtml;
+}
+
+// Update sample queries with actual table names
+function updateSampleQueries(tables) {
+    if (tables.length === 0) return;
+    
+    const firstTable = tables[0];
+    const secondTable = tables.length > 1 ? tables[1] : tables[0];
+    
+    // Update basic query
+    sampleQueries.basic = sampleQueries.basic.replace('{table}', firstTable);
+    
+    // Update join query (use more generic placeholders)
+    sampleQueries.join = sampleQueries.join
+        .replace('{table1}', firstTable)
+        .replace('{table2}', secondTable)
+        .replace(/{key_column}/g, 'id'); // Generic assumption
+    
+    // Update aggregate query
+    sampleQueries.aggregate = sampleQueries.aggregate
+        .replace('{table}', firstTable)
+        .replace('{group_column}', 'column_name') // Generic placeholder
+        .replace('{key_column}', 'id'); // Generic assumption
+}
+
+// Update the default query in the editor
+function updateDefaultQuery(tables) {
+    if (tables.length > 0 && sqlEditor) {
+        const defaultQuery = `SELECT * FROM ${tables[0]} LIMIT 10;`;
+        sqlEditor.setValue(defaultQuery);
+    }
+}
+
+// Insert table name at cursor position
+function insertTableName(tableName) {
+    if (sqlEditor) {
+        const cursor = sqlEditor.getCursor();
+        sqlEditor.replaceRange(tableName, cursor);
+        sqlEditor.focus();
+    }
+}
 
 function loadSampleQuery(type) {
     if (sqlEditor && sampleQueries[type]) {

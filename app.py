@@ -728,6 +728,20 @@ def api_schema():
     finally:
         conn.close()
 
+@app.route('/api/tables')
+@require_login
+def api_tables():
+    """Get list of table names in the database"""
+    conn = get_db_connection()
+    try:
+        # Get table names
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
+        table_names = [table['name'] for table in tables]
+        
+        return jsonify(table_names)
+    finally:
+        conn.close()
+
 @app.route('/api/sample-data/<table_name>')
 @require_login
 def api_sample_data(table_name):

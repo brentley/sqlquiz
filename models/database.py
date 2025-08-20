@@ -76,6 +76,32 @@ def init_user_database():
     if db_dir:  # Only create directory if there is a directory path
         os.makedirs(db_dir, exist_ok=True)
     
+    # Check if we need to force regenerate the database due to schema issues
+    force_regenerate = False
+    if os.path.exists(USER_DATABASE):
+        try:
+            test_conn = get_user_db_connection()
+            # Quick check for problematic schemas
+            sessions_info = test_conn.execute("PRAGMA table_info(user_sessions)").fetchall()
+            sessions_columns = [col['name'] for col in sessions_info]
+            
+            # If we find the problematic session_id column, force regeneration
+            if 'session_id' in sessions_columns and 'session_token' not in sessions_columns:
+                print("Detected incompatible schema in user database. Force regenerating...")
+                force_regenerate = True
+            
+            test_conn.close()
+        except Exception as e:
+            print(f"Error checking existing database schema: {e}")
+            force_regenerate = True
+    
+    # Force regenerate database if needed
+    if force_regenerate:
+        print(f"Removing incompatible user database: {USER_DATABASE}")
+        if os.path.exists(USER_DATABASE):
+            os.remove(USER_DATABASE)
+        print("Creating fresh user database with correct schema...")
+    
     conn = get_user_db_connection()
     try:
         # Check if database exists and what schema it has

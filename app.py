@@ -231,23 +231,27 @@ def api_tables():
 @app.route('/api/execute', methods=['POST'])
 @require_login
 def api_execute():
-    """Execute SQL query"""
+    """Execute SQL query with pagination support"""
     data = request.get_json()
     query = data.get('query', '').strip()
+    page = data.get('page', 1)
+    rows_per_page = data.get('rows_per_page', 1000)
     
     if not query:
         return jsonify({'success': False, 'error': 'Query is required'})
     
-    # Execute query safely
-    success, result_data, error_message, execution_time_ms, row_count = execute_safe_query(query)
+    # Execute query safely with pagination
+    success, result_data, error_message, execution_time_ms, total_count, page_count = execute_safe_query(
+        query, page=page, rows_per_page=rows_per_page
+    )
     
-    # Log the query
+    # Log the query (log the original query, not paginated version)
     log_query(
         session.get('user_id'),
         session.get('session_token'),
         query,
         execution_time_ms,
-        row_count,
+        page_count,  # Log the count of rows returned for this page
         success,
         error_message
     )
@@ -257,8 +261,11 @@ def api_execute():
             'success': True,
             'results': result_data['results'],
             'columns': result_data['columns'],
+            'total_count': result_data['total_count'],
+            'page': result_data['page'],
+            'rows_per_page': result_data['rows_per_page'],
             'execution_time_ms': execution_time_ms,
-            'row_count': row_count
+            'page_count': page_count
         })
     else:
         return jsonify({
@@ -334,9 +341,9 @@ def api_challenge_attempt(challenge_id):
     if not challenge:
         return jsonify({'error': 'Challenge not found'}), 404
     
-    # Execute query and measure performance
+    # Execute query and measure performance (for challenges, use old interface)
     start_time = time.time()
-    success, result_data, error_message, execution_time_ms, result_count = execute_safe_query(query)
+    success, result_data, error_message, execution_time_ms, total_count, result_count = execute_safe_query(query)
     
     if success:
         expected_count = challenge.get('expected_result_count', 0)
@@ -348,7 +355,7 @@ def api_challenge_attempt(challenge_id):
         if expected_count and expected_count > 0:
             # Check if result count is close to expected (within 10% tolerance)
             tolerance = max(1, int(expected_count * 0.1))
-            if abs(result_count - expected_count) <= tolerance:
+            if abs(total_count - expected_count) <= tolerance:
                 is_correct = True
                 
                 # Calculate score
@@ -359,7 +366,7 @@ def api_challenge_attempt(challenge_id):
         
         # Record the attempt
         record_challenge_attempt(
-            session.get('user_id'), challenge_id, query, result_count,
+            session.get('user_id'), challenge_id, query, total_count,
             is_correct, score, hints_used, execution_time_ms
         )
         
@@ -367,12 +374,12 @@ def api_challenge_attempt(challenge_id):
             'success': True,
             'is_correct': is_correct,
             'score': score,
-            'result_count': result_count,
+            'result_count': total_count,
             'expected_count': expected_count,
             'execution_time_ms': execution_time_ms,
             'hints_used': hints_used,
             'feedback': 'Correct! Well done!' if is_correct else 
-                       f'Not quite right. Your query returned {result_count} rows, but we expected around {expected_count}.'
+                       f'Not quite right. Your query returned {total_count} rows, but we expected around {expected_count}.'
         })
     else:
         # Record failed attempt

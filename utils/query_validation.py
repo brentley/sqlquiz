@@ -73,15 +73,15 @@ def remove_sql_comments(query):
     return query
 
 
-def execute_safe_query(query, timeout_seconds=60):
+def execute_safe_query(query, timeout_seconds=60, page=1, rows_per_page=1000):
     """
-    Execute a SQL query safely with validation and timeout.
-    Returns (success, data, error_message, execution_time_ms, row_count)
+    Execute a SQL query safely with validation, timeout, and pagination.
+    Returns (success, data, error_message, execution_time_ms, total_count, page_count)
     """
     # Validate query first
     is_valid, error_message = validate_query(query)
     if not is_valid:
-        return False, None, error_message, 0, 0
+        return False, None, error_message, 0, 0, 0
     
     start_time = time.time()
     
@@ -91,8 +91,17 @@ def execute_safe_query(query, timeout_seconds=60):
         # Set a timeout for the query
         conn.execute(f"PRAGMA busy_timeout = {timeout_seconds * 1000}")
         
-        # Execute the query
-        cursor = conn.execute(query)
+        # First, get the total count by wrapping the query
+        count_query = f"SELECT COUNT(*) as total_count FROM ({query}) as subquery"
+        count_cursor = conn.execute(count_query)
+        total_count = count_cursor.fetchone()[0]
+        
+        # Calculate pagination
+        offset = (page - 1) * rows_per_page
+        
+        # Execute the paginated query
+        paginated_query = f"{query} LIMIT {rows_per_page} OFFSET {offset}"
+        cursor = conn.execute(paginated_query)
         results = cursor.fetchall()
         
         # Get column names
@@ -104,11 +113,11 @@ def execute_safe_query(query, timeout_seconds=60):
             data.append(dict(zip(columns, row)))
         
         execution_time_ms = (time.time() - start_time) * 1000
-        row_count = len(data)
+        page_count = len(data)
         
         conn.close()
         
-        return True, {'results': data, 'columns': columns}, None, execution_time_ms, row_count
+        return True, {'results': data, 'columns': columns, 'total_count': total_count, 'page': page, 'rows_per_page': rows_per_page}, None, execution_time_ms, total_count, page_count
     
     except Exception as e:
         execution_time_ms = (time.time() - start_time) * 1000
@@ -122,7 +131,7 @@ def execute_safe_query(query, timeout_seconds=60):
         elif "syntax error" in error_message.lower():
             error_message = "SQL syntax error. Please check your query syntax."
         
-        return False, None, error_message, execution_time_ms, 0
+        return False, None, error_message, execution_time_ms, 0, 0
 
 
 def sanitize_table_name(table_name):

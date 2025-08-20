@@ -312,11 +312,11 @@ function displayResults(data) {
                 </div>
                 <div class="font-controls">
                     <small class="text-muted me-2">Font size:</small>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="changeFontSize('xs')" title="Extra Small">A-</button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="changeFontSize('sm')" title="Small">A</button>
-                    <button class="btn btn-secondary btn-sm" onclick="changeFontSize('md')" title="Default" id="font-md">A</button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="changeFontSize('lg')" title="Large">A+</button>
-                    <button class="btn btn-outline-secondary btn-sm" onclick="changeFontSize('xl')" title="Extra Large">A++</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="changeFontSize('xs', event)" title="Extra Small">A-</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="changeFontSize('sm', event)" title="Small">A</button>
+                    <button class="btn btn-secondary btn-sm" onclick="changeFontSize('md', event)" title="Default" id="font-md">A</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="changeFontSize('lg', event)" title="Large">A+</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="changeFontSize('xl', event)" title="Extra Large">A++</button>
                 </div>
             </div>
             <div class="card-body p-0">
@@ -503,7 +503,7 @@ function showAlert(message, type) {
 }
 
 // Font size control functions
-function changeFontSize(size) {
+function changeFontSize(size, sourceEvent = null) {
     const table = document.getElementById('resultsTable');
     if (!table) return;
     
@@ -519,9 +519,18 @@ function changeFontSize(size) {
         btn.classList.add('btn-outline-secondary');
     });
     
-    // Highlight the active button
-    event.target.classList.remove('btn-outline-secondary');
-    event.target.classList.add('btn-secondary');
+    // Highlight the active button - only if we have an event source
+    if (sourceEvent && sourceEvent.target) {
+        sourceEvent.target.classList.remove('btn-outline-secondary');
+        sourceEvent.target.classList.add('btn-secondary');
+    } else {
+        // Find and highlight the correct button based on size
+        const targetButton = document.querySelector(`[onclick="changeFontSize('${size}')"]`);
+        if (targetButton) {
+            targetButton.classList.remove('btn-outline-secondary');
+            targetButton.classList.add('btn-secondary');
+        }
+    }
     
     // Save to localStorage
     localStorage.setItem('sqlquiz-font-size', size);

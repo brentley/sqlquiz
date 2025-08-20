@@ -25,83 +25,348 @@ app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-change-in-production')
 
 DATABASE = '/app/data/healthcare_quiz.db'
+USER_DATABASE = '/app/data/user_data.db'
 
 def get_db_connection():
+    """Get connection to healthcare database (accessible via web UI)"""
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_user_db_connection():
+    """Get connection to user tracking database (internal only)"""
+    conn = sqlite3.connect(USER_DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 def init_database():
-    """Initialize database and create all necessary tables"""
+    """Initialize both healthcare and user databases"""
+    print("Initializing databases...")
+    
+    # Initialize healthcare database
+    init_healthcare_database()
+    
+    # Initialize user tracking database (separate)
+    init_user_database()
+
+def init_healthcare_database():
+    """Initialize healthcare database (accessible via web UI)"""
     import os
+    import csv
+    from datetime import datetime
     
-    # Ensure the database file exists by creating a minimal database first
-    if not os.path.exists(DATABASE):
-        print(f"Creating initial database: {DATABASE}")
+    # Check if database already exists and has healthcare data
+    if os.path.exists(DATABASE):
         conn = sqlite3.connect(DATABASE)
-        conn.execute('CREATE TABLE IF NOT EXISTS _init (id INTEGER)')
-        conn.commit()
-        conn.close()
+        try:
+            # Check if healthcare tables exist and have data
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='patients'")
+            if cursor.fetchone():
+                cursor = conn.execute("SELECT COUNT(*) FROM patients")
+                patient_count = cursor.fetchone()[0]
+                if patient_count > 0:
+                    print(f"Healthcare database already exists with {patient_count} patients")
+                    conn.close()
+                    return
+        except:
+            pass
+        finally:
+            conn.close()
     
-    # Now initialize user tracking tables
-    conn = get_db_connection()
+    print(f"Creating healthcare database: {DATABASE}")
+    
+    # Create fresh healthcare database
+    if os.path.exists(DATABASE):
+        os.remove(DATABASE)
+    
+    conn = sqlite3.connect(DATABASE)
     try:
-        # Create users table
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                email TEXT,
-                first_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                total_sessions INTEGER DEFAULT 0
-            )
-        ''')
-        
-        # Create user_sessions table
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS user_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                session_id TEXT UNIQUE NOT NULL,
-                start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                ip_address TEXT,
-                user_agent TEXT,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )
-        ''')
-        
-        # Create query_logs table  
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS query_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                session_id TEXT,
-                query_text TEXT NOT NULL,
-                execution_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                success BOOLEAN NOT NULL,
-                error_message TEXT,
-                results_count INTEGER,
-                ip_address TEXT,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )
-        ''')
+        # Create healthcare schema
+        if os.path.exists('schema.sql'):
+            print("Creating healthcare tables from schema.sql...")
+            with open('schema.sql', 'r') as f:
+                schema = f.read()
+            conn.executescript(schema)
+            
+            # Load healthcare data if CSV files exist
+            if os.path.exists('HW_INVOICE.csv') and os.path.exists('HW_CHARGES.csv'):
+                print("Loading healthcare data from CSV files...")
+                load_healthcare_data(conn)
+            else:
+                print("CSV files not found - creating empty healthcare tables")
         
         conn.commit()
-        print(f"Database initialized successfully: {DATABASE}")
+        print(f"Healthcare database initialized successfully: {DATABASE}")
     except Exception as e:
-        print(f"Error initializing database: {e}")
+        print(f"Error initializing healthcare database: {e}")
         raise
     finally:
         conn.close()
+
+def init_user_database():
+    """Initialize user tracking database (internal only)"""
+    print(f"Initializing user database: {USER_DATABASE}")
+    
+    # Create user database directory if needed
+    import os
+    os.makedirs(os.path.dirname(USER_DATABASE), exist_ok=True)
+    
+    conn = get_user_db_connection()
+    try:
+        create_user_tables(conn)
+        conn.commit()
+        print(f"User database initialized successfully: {USER_DATABASE}")
+    except Exception as e:
+        print(f"Error initializing user database: {e}")
+        raise
+    finally:
+        conn.close()
+
+def create_user_tables(conn):
+    """Create user tracking tables"""
+    print("Creating user tracking tables...")
+    
+    # Create users table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT,
+            first_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            total_sessions INTEGER DEFAULT 0
+        )
+    ''')
+    
+    # Create user_sessions table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            session_id TEXT UNIQUE NOT NULL,
+            start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip_address TEXT,
+            user_agent TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    # Create query_logs table  
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS query_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            session_id TEXT,
+            query_text TEXT NOT NULL,
+            execution_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            success BOOLEAN NOT NULL,
+            error_message TEXT,
+            results_count INTEGER,
+            ip_address TEXT,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+
+def clean_value(value):
+    """Clean and convert CSV values"""
+    if not value or value.strip() == '' or value.upper() == 'N/A':
+        return None
+    
+    # Remove BOM if present
+    if value.startswith('﻿'):
+        value = value[1:]
+    
+    return value.strip()
+
+def parse_date(date_str):
+    """Parse date strings from CSV"""
+    if not date_str or date_str.strip() == '' or date_str.upper() == 'N/A':
+        return None
+    
+    date_str = clean_value(date_str)
+    if not date_str:
+        return None
+    
+    try:
+        # Try parsing YYYY-MM-DD format
+        return datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        try:
+            # Try parsing MM/DD/YYYY format
+            return datetime.strptime(date_str, '%m/%d/%Y').date()
+        except ValueError:
+            return None
+
+def parse_decimal(decimal_str):
+    """Parse decimal values from CSV"""
+    if not decimal_str or decimal_str.strip() == '' or decimal_str.upper() == 'N/A':
+        return None
+    
+    decimal_str = clean_value(decimal_str)
+    if not decimal_str:
+        return None
+    
+    try:
+        return float(decimal_str)
+    except ValueError:
+        return None
+
+def load_healthcare_data(conn):
+    """Load healthcare data from CSV files"""
+    # Load lookup tables first
+    load_lookup_tables(conn)
+    
+    # Load main tables
+    load_patients(conn)
+    load_invoices(conn)
+    load_invoice_details(conn)
+    
+    # Print summary
+    cursor = conn.execute("SELECT COUNT(*) FROM patients")
+    patient_count = cursor.fetchone()[0]
+    cursor = conn.execute("SELECT COUNT(*) FROM invoices")
+    invoice_count = cursor.fetchone()[0]
+    cursor = conn.execute("SELECT COUNT(*) FROM invoice_details")
+    detail_count = cursor.fetchone()[0]
+    
+    print(f"Loaded {patient_count} patients, {invoice_count} invoices, {detail_count} invoice details")
+
+def load_lookup_tables(conn):
+    """Load lookup tables first"""
+    # Service lines - extract from invoice data
+    service_lines = set()
+    
+    # Read service lines from invoice CSV
+    with open('HW_INVOICE.csv', 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            service_line = clean_value(row.get('SERVICE_LINE'))
+            if service_line:
+                service_lines.add(service_line)
+    
+    # Insert service lines
+    for service_line in service_lines:
+        conn.execute("""
+            INSERT OR IGNORE INTO service_lines (service_line_code, service_line_name)
+            VALUES (?, ?)
+        """, (service_line, service_line))
+    
+    # Insurance plans - extract from both CSV files
+    insurance_plans = set()
+    
+    # From invoice CSV
+    with open('HW_INVOICE.csv', 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Current plan
+            plan_code = clean_value(row.get('CUR_IPLAN_CODE'))
+            plan_desc = clean_value(row.get('CUR_IPLAN_DESC'))
+            payor = clean_value(row.get('CUR_PAYOR'))
+            if plan_code:
+                insurance_plans.add((plan_code, plan_desc, payor))
+            
+            # Primary plan
+            plan_code = clean_value(row.get('IPLAN_1_CODE'))
+            plan_desc = clean_value(row.get('IPLAN_1_DESC'))
+            payor = clean_value(row.get('IPLAN_1_PAYOR'))
+            if plan_code:
+                insurance_plans.add((plan_code, plan_desc, payor))
+    
+    # Insert insurance plans
+    for plan_code, plan_desc, payor in insurance_plans:
+        conn.execute("""
+            INSERT OR IGNORE INTO insurance_plans (plan_code, plan_description, payor_name)
+            VALUES (?, ?, ?)
+        """, (plan_code, plan_desc, payor))
+
+def load_patients(conn):
+    """Load patient data"""
+    patients = set()
+    
+    # Extract unique patients from invoice CSV
+    with open('HW_INVOICE.csv', 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            patient_id = clean_value(row.get('NEW_PT_ID'))
+            dob = parse_date(row.get('PAT_DOB'))
+            billing_office = clean_value(row.get('BILLING_OFFICE'))
+            
+            if patient_id:
+                patients.add((patient_id, dob, billing_office))
+    
+    # Insert patients
+    for patient_id, dob, billing_office in patients:
+        conn.execute("""
+            INSERT OR IGNORE INTO patients (patient_id, date_of_birth, billing_office)
+            VALUES (?, ?, ?)
+        """, (patient_id, dob, billing_office))
+
+def load_invoices(conn):
+    """Load invoice header data"""
+    count = 0
+    with open('HW_INVOICE.csv', 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        
+        for row in reader:
+            invoice_id = clean_value(row.get('NEW_INVOICE_ID'))
+            if not invoice_id:
+                continue
+            
+            # Extract and clean data (simplified version)
+            patient_id = clean_value(row.get('NEW_PT_ID'))
+            service_line_code = clean_value(row.get('SERVICE_LINE'))
+            invoice_total_charges = parse_decimal(row.get('INVOICE_TOTAL_CHARGES'))
+            invoice_total_payments = parse_decimal(row.get('INVOICE_TOTAL_PAYMENTS'))
+            ar_status = clean_value(row.get('AR_STATUS'))
+            
+            try:
+                conn.execute("""
+                    INSERT OR REPLACE INTO invoices (
+                        invoice_id, patient_id, service_line_code, 
+                        invoice_total_charges, invoice_total_payments, ar_status
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, (invoice_id, patient_id, service_line_code, 
+                      invoice_total_charges, invoice_total_payments, ar_status))
+                count += 1
+                    
+            except Exception as e:
+                continue
+
+def load_invoice_details(conn):
+    """Load invoice detail data (simplified)"""
+    count = 0
+    with open('HW_CHARGES.csv', 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        
+        for row in reader:
+            invoice_detail_id = clean_value(row.get('NEW_INVOICE_DETAIL_ID'))
+            if not invoice_detail_id:
+                continue
+            
+            # Extract key fields only
+            invoice_id = clean_value(row.get('NEW_INVOICE_ID'))
+            patient_id = clean_value(row.get('NEW_PT_ID'))
+            cpt_code = clean_value(row.get('CPT_CODE'))
+            invoice_total_charges = parse_decimal(row.get('INVOICE_TOTAL_CHARGES'))
+            
+            try:
+                conn.execute("""
+                    INSERT OR REPLACE INTO invoice_details (
+                        invoice_detail_id, invoice_id, patient_id, cpt_code, invoice_total_charges
+                    ) VALUES (?, ?, ?, ?, ?)
+                """, (invoice_detail_id, invoice_id, patient_id, cpt_code, invoice_total_charges))
+                count += 1
+                    
+            except Exception as e:
+                continue
 
 # Initialize database on startup
 init_database()
 
 def get_or_create_user(username, email=None):
     """Get existing user or create new one"""
-    conn = get_db_connection()
+    conn = get_user_db_connection()
     try:
         # Try to find existing user
         user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
@@ -131,7 +396,7 @@ def create_user_session(user_id, ip_address, user_agent):
     import uuid
     session_id = str(uuid.uuid4())
     
-    conn = get_db_connection()
+    conn = get_user_db_connection()
     try:
         conn.execute(
             '''INSERT INTO user_sessions (user_id, session_id, ip_address, user_agent)
@@ -152,7 +417,7 @@ def create_user_session(user_id, ip_address, user_agent):
 
 def update_session_activity(session_id):
     """Update last activity for session"""
-    conn = get_db_connection()
+    conn = get_user_db_connection()
     try:
         conn.execute(
             'UPDATE user_sessions SET last_activity = CURRENT_TIMESTAMP WHERE session_id = ?',
@@ -164,7 +429,7 @@ def update_session_activity(session_id):
 
 def log_query_execution(user_id, session_id, query_text, success, error_message=None, results_count=0, ip_address=None):
     """Log a query execution"""
-    conn = get_db_connection()
+    conn = get_user_db_connection()
     try:
         conn.execute(
             '''INSERT INTO query_logs (user_id, session_id, query_text, success, error_message, results_count, ip_address)

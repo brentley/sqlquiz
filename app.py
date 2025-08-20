@@ -847,8 +847,17 @@ def api_sample_data(table_name):
 @require_login
 def api_sample_queries():
     """Generate smart sample queries based on current schema"""
+    # Temporarily return simple queries to prevent startup issues
+    return jsonify({
+        'basic': '-- Browse data\nSELECT * FROM hw_charges LIMIT 10;',
+        'join': '-- JOIN example\nSELECT * FROM hw_charges c JOIN hw_invoice i ON c.NEW_INVOICE_ID = i.NEW_INVOICE_ID LIMIT 15;',
+        'aggregate': '-- Count by status\nSELECT AR_STATUS, COUNT(*) as count FROM hw_invoice GROUP BY AR_STATUS ORDER BY count DESC;'
+    })
+    
+    # Original complex logic - temporarily disabled
     conn = get_db_connection()
-    try:
+    if False:  # Disable the complex logic for now
+        try:
         # Get table names and their schemas
         tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
         table_names = [table['name'] for table in tables]

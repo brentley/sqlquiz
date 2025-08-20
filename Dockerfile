@@ -46,6 +46,12 @@ COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
 # Copy application files
 COPY --chown=appuser:appuser . .
 
+# Write build info to file (will be read by application at runtime)
+RUN echo "GIT_COMMIT=$GIT_COMMIT" > /app/BUILD_INFO && \
+    echo "BUILD_DATE=$BUILD_DATE" >> /app/BUILD_INFO && \
+    echo "VERSION=$VERSION" >> /app/BUILD_INFO && \
+    chown appuser:appuser /app/BUILD_INFO
+
 # Ensure database directory exists and is writable
 RUN mkdir -p /app/data && chown -R appuser:appuser /app
 

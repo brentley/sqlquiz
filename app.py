@@ -12,12 +12,39 @@ import io
 import tempfile
 from werkzeug.utils import secure_filename
 
-# Get version info from environment variables
+# Get version info from build files or environment variables
 def get_version_info():
+    # Try to read commit from build file first, fallback to environment
+    git_commit = 'unknown'
+    try:
+        with open('/app/BUILD_INFO', 'r') as f:
+            lines = f.read().strip().split('\n')
+            for line in lines:
+                if line.startswith('GIT_COMMIT='):
+                    git_commit = line.split('=', 1)[1][:7]
+                    break
+    except FileNotFoundError:
+        # Fallback to environment variable
+        git_commit = os.getenv('GIT_COMMIT', 'unknown')[:7]
+    
+    # Also try to read build date from file
+    build_date = 'unknown'
+    version = '1.0.0'
+    try:
+        with open('/app/BUILD_INFO', 'r') as f:
+            lines = f.read().strip().split('\n')
+            for line in lines:
+                if line.startswith('BUILD_DATE='):
+                    build_date = line.split('=', 1)[1]
+                elif line.startswith('VERSION='):
+                    version = line.split('=', 1)[1]
+    except FileNotFoundError:
+        pass
+    
     return {
-        'git_commit': os.getenv('GIT_COMMIT', 'unknown')[:7],
-        'build_date': os.getenv('BUILD_DATE', 'unknown'),
-        'version': os.getenv('VERSION', '1.0.0'),
+        'git_commit': git_commit,
+        'build_date': build_date,
+        'version': version,
         'environment': os.getenv('FLASK_ENV', 'development')
     }
 

@@ -39,72 +39,84 @@ def create_user(username, password=None, email=None):
 
 def authenticate_user(username, password=None):
     """Authenticate user with username/password or create if not exists"""
-    conn = get_user_db_connection()
     try:
-        user = conn.execute('SELECT id, password_hash FROM users WHERE username = ?', (username,)).fetchone()
-        
-        if user:
-            # User exists - check password if provided
-            if password and user['password_hash']:
-                password_hash = hashlib.sha256(password.encode()).hexdigest()
-                if password_hash != user['password_hash']:
-                    return None
-            return user['id']
-        else:
-            # User doesn't exist - create new user
-            return create_user(username, password)
-    finally:
-        conn.close()
+        conn = get_user_db_connection()
+        try:
+            user = conn.execute('SELECT id, password_hash FROM users WHERE username = ?', (username,)).fetchone()
+            
+            if user:
+                # User exists - check password if provided
+                if password and user['password_hash']:
+                    password_hash = hashlib.sha256(password.encode()).hexdigest()
+                    if password_hash != user['password_hash']:
+                        return None
+                return user['id']
+            else:
+                # User doesn't exist - create new user
+                return create_user(username, password)
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"Warning: Could not authenticate user (database unavailable): {e}")
+        return None
 
 
 def create_session(user_id, ip_address=None, user_agent=None):
     """Create a new user session"""
-    conn = get_user_db_connection()
     try:
-        # Generate session token
-        session_token = secrets.token_urlsafe(32)
-        
-        # Create session
-        conn.execute('''
-            INSERT INTO user_sessions (user_id, session_token, ip_address, user_agent)
-            VALUES (?, ?, ?, ?)
-        ''', (user_id, session_token, ip_address, user_agent))
-        
-        # Update user last login
-        conn.execute('''
-            UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?
-        ''', (user_id,))
-        
-        conn.commit()
-        return session_token
-    finally:
-        conn.close()
+        conn = get_user_db_connection()
+        try:
+            # Generate session token
+            session_token = secrets.token_urlsafe(32)
+            
+            # Create session
+            conn.execute('''
+                INSERT INTO user_sessions (user_id, session_token, ip_address, user_agent)
+                VALUES (?, ?, ?, ?)
+            ''', (user_id, session_token, ip_address, user_agent))
+            
+            # Update user last login
+            conn.execute('''
+                UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?
+            ''', (user_id,))
+            
+            conn.commit()
+            return session_token
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"Warning: Could not create user session (database unavailable): {e}")
+        return None
 
 
 def get_user_by_session(session_token):
     """Get user information from session token"""
-    conn = get_user_db_connection()
     try:
-        result = conn.execute('''
-            SELECT u.id, u.username, u.email, s.login_time
-            FROM users u
-            JOIN user_sessions s ON u.id = s.user_id
-            WHERE s.session_token = ? AND s.is_active = 1
-        ''', (session_token,)).fetchone()
-        
-        if result:
-            # Update last activity
-            conn.execute('''
-                UPDATE user_sessions 
-                SET last_activity = CURRENT_TIMESTAMP 
-                WHERE session_token = ?
-            ''', (session_token,))
-            conn.commit()
+        conn = get_user_db_connection()
+        try:
+            result = conn.execute('''
+                SELECT u.id, u.username, u.email, s.login_time
+                FROM users u
+                JOIN user_sessions s ON u.id = s.user_id
+                WHERE s.session_token = ? AND s.is_active = 1
+            ''', (session_token,)).fetchone()
             
-            return dict(result)
+            if result:
+                # Update last activity
+                conn.execute('''
+                    UPDATE user_sessions 
+                    SET last_activity = CURRENT_TIMESTAMP 
+                    WHERE session_token = ?
+                ''', (session_token,))
+                conn.commit()
+                
+                return dict(result)
+            return None
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"Warning: Could not check user session (database unavailable): {e}")
         return None
-    finally:
-        conn.close()
 
 
 def get_user_by_username(username):

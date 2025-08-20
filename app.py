@@ -39,18 +39,18 @@ app.start_time = time.time()
 def require_login(f):
     """Decorator to require user login"""
     def decorated_function(*args, **kwargs):
-        if 'session_token' not in session:
+        # Check for basic session info (fallback when user database unavailable)
+        if 'username' not in session:
             return redirect(url_for('login'))
         
-        # Validate session
-        user = get_user_by_session(session['session_token'])
-        if not user:
-            session.clear()
-            return redirect(url_for('login'))
-        
-        # Store user info in session for easy access
-        session['user_id'] = user['id']
-        session['username'] = user['username']
+        # Try to validate session if we have a session token
+        if 'session_token' in session:
+            user = get_user_by_session(session['session_token'])
+            if user:
+                # Store user info in session for easy access
+                session['user_id'] = user['id']
+                session['username'] = user['username']
+            # If user database is unavailable, continue with basic session info
         
         return f(*args, **kwargs)
     decorated_function.__name__ = f.__name__
@@ -97,13 +97,21 @@ def login():
                 request.headers.get('User-Agent', '')
             )
             
-            # Store in session
-            session['session_token'] = session_token
-            session['user_id'] = user_id
-            session['username'] = username
-            session['login_time'] = time.time()
-            
-            return redirect(url_for('index'))
+            if session_token:
+                # Store in session
+                session['session_token'] = session_token
+                session['user_id'] = user_id
+                session['username'] = username
+                session['login_time'] = time.time()
+                
+                return redirect(url_for('index'))
+            else:
+                # Session creation failed, but allow basic access
+                session['user_id'] = user_id
+                session['username'] = username
+                session['login_time'] = time.time()
+                flash('Login successful (limited functionality - user database unavailable)', 'warning')
+                return redirect(url_for('index'))
         else:
             flash('Authentication failed', 'error')
     

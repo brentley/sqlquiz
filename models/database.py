@@ -72,9 +72,28 @@ def init_user_database():
     
     # Create user database directory if needed
     import os
+    import stat
     db_dir = os.path.dirname(USER_DATABASE)
     if db_dir:  # Only create directory if there is a directory path
-        os.makedirs(db_dir, exist_ok=True)
+        try:
+            os.makedirs(db_dir, exist_ok=True)
+            # Ensure directory is writable
+            os.chmod(db_dir, stat.S_IRWXU | stat.S_IRWXG | stat.S_IROTH | stat.S_IXOTH)
+            print(f"Created/verified database directory: {db_dir}")
+        except Exception as e:
+            print(f"Warning: Could not create database directory {db_dir}: {e}")
+    
+    # Check if we can write to the database location
+    try:
+        test_file = USER_DATABASE + '.test'
+        with open(test_file, 'w') as f:
+            f.write('test')
+        os.remove(test_file)
+        print(f"Database directory is writable: {db_dir}")
+    except Exception as e:
+        print(f"WARNING: Database directory is not writable: {e}")
+        print(f"Database path: {USER_DATABASE}")
+        print(f"Directory permissions might be an issue")
     
     # Check if we need to force regenerate the database due to schema issues
     force_regenerate = False
@@ -103,11 +122,8 @@ def init_user_database():
             print(f"Error checking existing database schema: {e}")
             force_regenerate = True
     
-    # ALWAYS force regenerate for now to ensure clean state
-    # TODO: Remove this once schema issues are resolved
-    if os.path.exists(USER_DATABASE):
-        print(f"FORCE: Removing user database to ensure clean schema: {USER_DATABASE}")
-        force_regenerate = True
+    # Remove force regeneration now that schema is correct
+    # force_regenerate is only set if there are actual schema conflicts
     
     # Force regenerate database if needed
     if force_regenerate:

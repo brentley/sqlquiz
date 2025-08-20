@@ -53,7 +53,9 @@ RUN echo "GIT_COMMIT=$GIT_COMMIT" > /app/BUILD_INFO && \
     chown appuser:appuser /app/BUILD_INFO
 
 # Ensure database directory exists and is writable
-RUN mkdir -p /app/data && chown -R appuser:appuser /app
+RUN mkdir -p /app/data && \
+    chmod 755 /app/data && \
+    chown -R appuser:appuser /app
 
 # Update PATH
 ENV PATH=/home/appuser/.local/bin:$PATH

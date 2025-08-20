@@ -815,11 +815,13 @@ def process_zip_upload(zip_file):
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(temp_dir)
             
-            # Find CSV files
+            # Find CSV files (exclude macOS metadata files)
             csv_files = []
             for root, dirs, files in os.walk(temp_dir):
                 for file in files:
-                    if file.lower().endswith('.csv'):
+                    if (file.lower().endswith('.csv') and 
+                        not file.startswith('._') and 
+                        not file.startswith('.DS_Store')):
                         csv_files.append(os.path.join(root, file))
             
             if not csv_files:
@@ -850,7 +852,8 @@ def process_zip_upload(zip_file):
                     
                 except Exception as e:
                     error_msg = f"Error processing {os.path.basename(csv_file_path)}: {str(e)}"
-                    print(error_msg)
+                    print(f"Detailed error for {csv_file_path}: {repr(e)}")
+                    print(f"Error type: {type(e).__name__}")
                     errors.append(error_msg)
             
             conn.commit()

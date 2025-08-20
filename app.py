@@ -828,10 +828,32 @@ def data_upload():
     
     return render_template('upload.html')
 
+def clear_healthcare_database(conn):
+    """Clear all data from healthcare database, keeping only the structure"""
+    print("Clearing existing healthcare database data...")
+    
+    # Get all table names from the healthcare database
+    tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
+    
+    for table in tables:
+        table_name = table['name']
+        try:
+            # Drop the table completely
+            conn.execute(f'DROP TABLE IF EXISTS `{table_name}`')
+            print(f"Dropped table: {table_name}")
+        except Exception as e:
+            print(f"Error dropping table {table_name}: {e}")
+    
+    conn.commit()
+    print("Healthcare database cleared successfully")
+
 def process_zip_upload(zip_file):
     """Process uploaded ZIP file and create tables from CSV files"""
     conn = get_db_connection()
     try:
+        # Clear existing data from healthcare database before importing new data
+        clear_healthcare_database(conn)
+        
         # Create temporary directory
         with tempfile.TemporaryDirectory() as temp_dir:
             # Save uploaded file

@@ -212,6 +212,42 @@ def parse_decimal(decimal_str):
     except ValueError:
         return None
 
+def parse_money_to_cents(money_str):
+    """Parse monetary values from CSV and convert to cents (integer)"""
+    if not money_str or money_str.strip() == '' or money_str.upper() == 'N/A':
+        return None
+    
+    money_str = clean_value(money_str)
+    if not money_str:
+        return None
+    
+    # Remove dollar signs and commas
+    money_str = money_str.replace('$', '').replace(',', '')
+    
+    try:
+        # Parse as float then convert to cents
+        dollars = float(money_str)
+        cents = int(round(dollars * 100))
+        return cents
+    except ValueError:
+        return None
+
+def is_money_column(column_name):
+    """Detect if a column contains monetary values based on name"""
+    money_indicators = [
+        'charge', 'payment', 'balance', 'amount', 'cost', 'price', 
+        'total', 'revenue', 'reimbursement', 'adjustment', 'debt'
+    ]
+    
+    column_lower = column_name.lower()
+    return any(indicator in column_lower for indicator in money_indicators)
+
+def format_cents_to_dollars(cents):
+    """Convert cents (integer) back to dollar format for display"""
+    if cents is None:
+        return None
+    return cents / 100.0
+
 def load_healthcare_data(conn):
     """Load healthcare data from CSV files"""
     # Load lookup tables first
@@ -316,8 +352,8 @@ def load_invoices(conn):
             # Extract and clean data (simplified version)
             patient_id = clean_value(row.get('NEW_PT_ID'))
             service_line_code = clean_value(row.get('SERVICE_LINE'))
-            invoice_total_charges = parse_decimal(row.get('INVOICE_TOTAL_CHARGES'))
-            invoice_total_payments = parse_decimal(row.get('INVOICE_TOTAL_PAYMENTS'))
+            invoice_total_charges = parse_money_to_cents(row.get('INVOICE_TOTAL_CHARGES'))
+            invoice_total_payments = parse_money_to_cents(row.get('INVOICE_TOTAL_PAYMENTS'))
             ar_status = clean_value(row.get('AR_STATUS'))
             
             try:
@@ -348,7 +384,7 @@ def load_invoice_details(conn):
             invoice_id = clean_value(row.get('NEW_INVOICE_ID'))
             patient_id = clean_value(row.get('NEW_PT_ID'))
             cpt_code = clean_value(row.get('CPT_CODE'))
-            invoice_total_charges = parse_decimal(row.get('INVOICE_TOTAL_CHARGES'))
+            invoice_total_charges = parse_money_to_cents(row.get('INVOICE_TOTAL_CHARGES'))
             
             try:
                 conn.execute("""
@@ -463,6 +499,27 @@ def inject_version_info():
     context['time'] = time  # Make time module available to templates
     return context
 
+def format_query_results(results, columns):
+    """Format query results, converting cents back to dollars for money columns"""
+    if not results:
+        return results
+    
+    # Detect money columns by name
+    money_columns = [col for col in columns if is_money_column(col)]
+    
+    formatted_results = []
+    for row in results:
+        formatted_row = {}
+        for column, value in row.items():
+            if column in money_columns and value is not None:
+                # Convert cents back to dollars for display
+                formatted_row[column] = format_cents_to_dollars(value)
+            else:
+                formatted_row[column] = value
+        formatted_results.append(formatted_row)
+    
+    return formatted_results
+
 def execute_user_query(query):
     """Execute user-provided SQL query safely (read-only)"""
     conn = get_db_connection()
@@ -506,10 +563,13 @@ def execute_user_query(query):
         # Convert Row objects to dictionaries for JSON serialization
         results_list = [dict(row) for row in results]
         
+        # Format money columns for display
+        formatted_results = format_query_results(results_list, columns)
+        
         return {
             'success': True,
             'error': None,
-            'results': results_list,
+            'results': formatted_results,
             'columns': columns
         }
     except Exception as e:
@@ -840,10 +900,16 @@ def create_table_from_csv(conn, csv_file_path, table_name):
                     # Convert value based on determined type
                     col_type = column_types[sanitized]
                     if col_type == 'INTEGER':
-                        try:
-                            values.append(int(float(value)))  # Handle integers stored as floats
-                        except (ValueError, TypeError):
-                            values.append(None)
+                        # Check if this is a money column
+                        if is_money_column(header):
+                            # Convert dollars to cents
+                            cents_value = parse_money_to_cents(value)
+                            values.append(cents_value)
+                        else:
+                            try:
+                                values.append(int(float(value)))  # Handle integers stored as floats
+                            except (ValueError, TypeError):
+                                values.append(None)
                     elif col_type == 'REAL':
                         try:
                             values.append(float(value))
@@ -865,6 +931,11 @@ def determine_column_type(sample_rows, column_name):
     if not values:
         return 'TEXT'
     
+    # Check if this is a money column first
+    if is_money_column(column_name):
+        # Money columns should be INTEGER (stored as cents)
+        return 'INTEGER'
+    
     # Check if all values are integers
     int_count = 0
     float_count = 0
@@ -873,8 +944,11 @@ def determine_column_type(sample_rows, column_name):
         if value.lower() in ['null', 'none', 'n/a', '']:
             continue
             
+        # Remove $ and commas for numeric detection
+        clean_value_for_test = value.replace('$', '').replace(',', '')
+        
         try:
-            float_val = float(value)
+            float_val = float(clean_value_for_test)
             if float_val.is_integer():
                 int_count += 1
             else:

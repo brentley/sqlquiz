@@ -34,16 +34,16 @@ CREATE TABLE invoices (
     service_end_date DATE,
     service_line_code TEXT,
     
-    -- Financial totals
-    invoice_total_charges DECIMAL(12,2),
-    invoice_total_balance DECIMAL(12,2),
-    invoice_ins_balance DECIMAL(12,2),
-    invoice_bad_debt_balance DECIMAL(12,2),
-    invoice_total_payments DECIMAL(12,2),
-    invoice_total_ins_payments DECIMAL(12,2),
-    invoice_total_pt_payments DECIMAL(12,2),
-    invoice_total_adjustments DECIMAL(12,2),
-    invoice_total_expected_reimbursement DECIMAL(12,2),
+    -- Financial totals (stored as cents - INTEGER)
+    invoice_total_charges INTEGER,  -- cents
+    invoice_total_balance INTEGER,  -- cents
+    invoice_ins_balance INTEGER,  -- cents
+    invoice_bad_debt_balance INTEGER,  -- cents
+    invoice_total_payments INTEGER,  -- cents
+    invoice_total_ins_payments INTEGER,  -- cents
+    invoice_total_pt_payments INTEGER,  -- cents
+    invoice_total_adjustments INTEGER,  -- cents
+    invoice_total_expected_reimbursement INTEGER,  -- cents
     
     -- Current insurance plan
     current_plan_code TEXT,
@@ -80,9 +80,9 @@ CREATE TABLE invoice_details (
     service_end_date DATE,
     
     -- Financial amounts
-    invoice_total_charges DECIMAL(12,2),
-    charge_quantity DECIMAL(10,4),
-    invoice_total_expected_reimbursement DECIMAL(12,2),
+    invoice_total_charges INTEGER,  -- cents
+    charge_quantity DECIMAL(10,4),  -- keep as decimal for quantities
+    invoice_total_expected_reimbursement INTEGER,  -- cents
     
     -- Insurance information
     current_plan_code TEXT,

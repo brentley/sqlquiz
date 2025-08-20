@@ -47,7 +47,7 @@ COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
 COPY --chown=appuser:appuser . .
 
 # Ensure database directory exists and is writable
-RUN mkdir -p /app/data && chown appuser:appuser /app/data
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
 
 # Update PATH
 ENV PATH=/home/appuser/.local/bin:$PATH

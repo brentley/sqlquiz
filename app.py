@@ -24,7 +24,7 @@ def get_version_info():
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-change-in-production')
 
-DATABASE = 'healthcare_quiz.db'
+DATABASE = '/app/data/healthcare_quiz.db'
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)

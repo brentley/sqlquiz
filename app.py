@@ -51,8 +51,13 @@ def get_version_info():
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-change-in-production')
 
-DATABASE = '/app/data/healthcare_quiz.db'
-USER_DATABASE = '/app/data/user_data.db'
+# Use local path in development, container path in production
+if os.path.exists('/app/data'):
+    DATABASE = '/app/data/healthcare_quiz.db'
+    USER_DATABASE = '/app/data/user_data.db'
+else:
+    DATABASE = 'healthcare_quiz.db'
+    USER_DATABASE = 'user_data.db'
 
 def get_db_connection():
     """Get connection to healthcare database (accessible via web UI)"""
@@ -136,13 +141,19 @@ def init_user_database():
     
     # Create user database directory if needed
     import os
-    os.makedirs(os.path.dirname(USER_DATABASE), exist_ok=True)
+    db_dir = os.path.dirname(USER_DATABASE)
+    if db_dir:  # Only create directory if there is a directory path
+        os.makedirs(db_dir, exist_ok=True)
     
     conn = get_user_db_connection()
     try:
         create_user_tables(conn)
         conn.commit()
         print(f"User database initialized successfully: {USER_DATABASE}")
+        
+        # Seed challenges after database creation
+        seed_healthcare_challenges()
+        
     except Exception as e:
         print(f"Error initializing user database: {e}")
         raise
@@ -194,6 +205,177 @@ def create_user_tables(conn):
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
+    
+    # Create challenges table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS challenges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            difficulty_level INTEGER NOT NULL, -- 1=Basic, 2=Intermediate, 3=Advanced, 4=Expert
+            category TEXT NOT NULL, -- 'financial', 'operational', 'temporal', 'quality'
+            expected_query TEXT,
+            expected_result_count INTEGER,
+            expected_result_sample TEXT, -- JSON sample of expected results
+            hints TEXT, -- JSON array of progressive hints
+            max_score INTEGER DEFAULT 100,
+            time_limit_minutes INTEGER DEFAULT 30,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1
+        )
+    ''')
+    
+    # Create challenge attempts table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS challenge_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            session_id TEXT,
+            challenge_id INTEGER,
+            query_text TEXT NOT NULL,
+            success BOOLEAN NOT NULL,
+            error_message TEXT,
+            results_count INTEGER,
+            execution_time_ms REAL,
+            correctness_score INTEGER, -- 0-100 based on result similarity
+            efficiency_score INTEGER, -- 0-100 based on query performance
+            hints_used INTEGER DEFAULT 0,
+            attempt_number INTEGER DEFAULT 1,
+            time_to_solution_minutes REAL,
+            final_score INTEGER, -- calculated from correctness, efficiency, hints, time
+            is_solution BOOLEAN DEFAULT 0, -- marked when user submits as final answer
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (challenge_id) REFERENCES challenges (id)
+        )
+    ''')
+    
+    # Create user challenge progress table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS user_challenge_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            challenge_id INTEGER,
+            status TEXT DEFAULT 'not_started', -- 'not_started', 'in_progress', 'completed', 'skipped'
+            best_score INTEGER DEFAULT 0,
+            total_attempts INTEGER DEFAULT 0,
+            hints_used INTEGER DEFAULT 0,
+            completed_at TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (challenge_id) REFERENCES challenges (id),
+            UNIQUE(user_id, challenge_id)
+        )
+    ''')
+
+def seed_healthcare_challenges():
+    """Seed database with healthcare data analysis challenges"""
+    conn = get_user_db_connection()
+    try:
+        # Check if challenges already exist
+        existing = conn.execute('SELECT COUNT(*) FROM challenges').fetchone()[0]
+        if existing > 0:
+            print(f"Challenges already seeded ({existing} challenges exist)")
+            return
+            
+        print("Seeding healthcare data analysis challenges...")
+        
+        challenges = [
+            # Level 1: Basic queries
+            {
+                'title': 'Find Patient Count',
+                'description': 'How many unique patients are in the charges data? Use the hw_charges table to count distinct patients.',
+                'difficulty_level': 1,
+                'category': 'basic',
+                'expected_query': 'SELECT COUNT(DISTINCT NEW_PT_ID) FROM hw_charges;',
+                'expected_result_count': 1,
+                'hints': '["Look for patient ID columns", "Use COUNT with DISTINCT", "The patient ID column is NEW_PT_ID"]',
+                'time_limit_minutes': 10
+            },
+            {
+                'title': 'Billing Office Locations',
+                'description': 'What are all the different billing offices in the invoice data? List them alphabetically.',
+                'difficulty_level': 1,
+                'category': 'basic',
+                'expected_query': 'SELECT DISTINCT BILLING_OFFICE FROM hw_invoice ORDER BY BILLING_OFFICE;',
+                'expected_result_count': None,
+                'hints': '["Use DISTINCT to find unique values", "Sort results with ORDER BY", "Look in the hw_invoice table"]',
+                'time_limit_minutes': 10
+            },
+            
+            # Level 2: Intermediate analysis
+            {
+                'title': 'AR Status Distribution',
+                'description': 'What is the distribution of accounts receivable (AR) status? Show the count of invoices for each AR status, ordered by count descending.',
+                'difficulty_level': 2,
+                'category': 'operational',
+                'expected_query': 'SELECT AR_STATUS, COUNT(*) as invoice_count FROM hw_invoice GROUP BY AR_STATUS ORDER BY invoice_count DESC;',
+                'expected_result_count': None,
+                'hints': '["Use GROUP BY for aggregation", "COUNT(*) gives you totals", "AR_STATUS is in hw_invoice table", "Order by count in descending order"]',
+                'time_limit_minutes': 15
+            },
+            {
+                'title': 'Monthly Charge Volume',
+                'description': 'Which month had the highest total charges? Analyze invoice charges by month and find the peak month.',
+                'difficulty_level': 2,
+                'category': 'temporal',
+                'expected_query': "SELECT strftime('%Y-%m', INVOICE_DETAIL_POST_DATE) as month, SUM(INVOICE_TOTAL_CHARGES) as total_charges FROM hw_charges WHERE INVOICE_DETAIL_POST_DATE IS NOT NULL GROUP BY month ORDER BY total_charges DESC LIMIT 1;",
+                'expected_result_count': 1,
+                'hints': '["Use strftime to extract month from dates", "SUM the charge amounts", "GROUP BY month", "Use LIMIT to get the top result"]',
+                'time_limit_minutes': 20
+            },
+            
+            # Level 3: Advanced analysis
+            {
+                'title': 'Patient Payment Patterns',
+                'description': 'Find patients with invoices in multiple AR statuses. This could indicate complex payment scenarios. Show patient ID, number of different statuses, and list the statuses.',
+                'difficulty_level': 3,
+                'category': 'financial',
+                'expected_query': "SELECT NEW_PT_ID, COUNT(DISTINCT AR_STATUS) as status_count, GROUP_CONCAT(DISTINCT AR_STATUS) as statuses FROM hw_invoice GROUP BY NEW_PT_ID HAVING COUNT(DISTINCT AR_STATUS) > 1 ORDER BY status_count DESC;",
+                'expected_result_count': None,
+                'hints': '["Join invoice data with charges", "Look for patients with multiple AR statuses", "Use GROUP_CONCAT to list statuses", "HAVING clause filters groups"]',
+                'time_limit_minutes': 25
+            },
+            {
+                'title': 'Insurance Reimbursement Analysis',
+                'description': 'Compare expected vs actual reimbursement by insurance plan. Calculate the reimbursement rate for each primary insurance plan (IPLAN_1_PAYOR).',
+                'difficulty_level': 3,
+                'category': 'financial',
+                'expected_query': "SELECT IPLAN_1_PAYOR, SUM(INVOICE_TOTAL_EXPECTED_REIMBURSEMENT) as expected, SUM(INVOICE_TOTAL_INS_PAYMENTS) as actual, ROUND(100.0 * SUM(INVOICE_TOTAL_INS_PAYMENTS) / SUM(INVOICE_TOTAL_EXPECTED_REIMBURSEMENT), 2) as reimbursement_rate FROM hw_invoice WHERE IPLAN_1_PAYOR IS NOT NULL AND INVOICE_TOTAL_EXPECTED_REIMBURSEMENT > 0 GROUP BY IPLAN_1_PAYOR ORDER BY reimbursement_rate DESC;",
+                'expected_result_count': None,
+                'hints': '["Compare expected vs actual payments", "Calculate percentage rates", "Group by insurance payor", "Handle division by zero"]',
+                'time_limit_minutes': 30
+            },
+            
+            # Level 4: Expert business insights
+            {
+                'title': 'Revenue Cycle Efficiency',
+                'description': 'Analyze the time from service to payment. Calculate average days between service start date and invoice payment date for completed accounts. Identify the most efficient billing offices.',
+                'difficulty_level': 4,
+                'category': 'operational',
+                'expected_query': "SELECT i.BILLING_OFFICE, COUNT(*) as completed_invoices, AVG(JULIANDAY(i.INVOICE_LAST_PAYMENT_DATE) - JULIANDAY(c.SERVICE_START_DATE)) as avg_days_to_payment FROM hw_invoice i JOIN hw_charges c ON i.NEW_INVOICE_ID = c.NEW_INVOICE_ID WHERE i.INVOICE_LAST_PAYMENT_DATE IS NOT NULL AND c.SERVICE_START_DATE IS NOT NULL AND i.AR_STATUS = 'Paid' GROUP BY i.BILLING_OFFICE HAVING COUNT(*) >= 10 ORDER BY avg_days_to_payment ASC;",
+                'expected_result_count': None,
+                'hints': '["Join charges and invoice tables", "Calculate date differences", "Filter for paid invoices only", "Focus on billing office efficiency", "Use JULIANDAY for date arithmetic"]',
+                'time_limit_minutes': 40
+            }
+        ]
+        
+        for challenge in challenges:
+            conn.execute('''
+                INSERT INTO challenges (title, description, difficulty_level, category, expected_query, 
+                                      expected_result_count, hints, time_limit_minutes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (challenge['title'], challenge['description'], challenge['difficulty_level'], 
+                  challenge['category'], challenge['expected_query'], challenge['expected_result_count'],
+                  challenge['hints'], challenge['time_limit_minutes']))
+        
+        conn.commit()
+        print(f"Seeded {len(challenges)} healthcare data analysis challenges")
+        
+    except Exception as e:
+        print(f"Error seeding challenges: {e}")
+        raise
+    finally:
+        conn.close()
 
 def clean_value(value):
     """Clean and convert CSV values"""
@@ -1438,6 +1620,230 @@ def determine_column_type(sample_rows, column_name):
             return 'REAL'
     
     return 'TEXT'
+
+# Challenge system routes
+@app.route('/challenges')
+@require_login  
+def challenges():
+    """Challenge mode - data analysis problems for candidates"""
+    return render_template('challenges.html')
+
+@app.route('/api/challenges')
+@require_login
+def api_challenges():
+    """Get all available challenges grouped by difficulty level"""
+    conn = get_db_connection()
+    try:
+        challenges = conn.execute('''
+            SELECT id, title, description, difficulty_level, category, hints, 
+                   max_score, time_limit_minutes, is_active
+            FROM challenges 
+            WHERE is_active = 1 
+            ORDER BY difficulty_level, id
+        ''').fetchall()
+        
+        # Group by difficulty level
+        levels = {
+            1: {'name': 'Basic', 'challenges': []},
+            2: {'name': 'Intermediate', 'challenges': []},
+            3: {'name': 'Advanced', 'challenges': []},
+            4: {'name': 'Expert', 'challenges': []}
+        }
+        
+        for challenge in challenges:
+            level = challenge['difficulty_level']
+            if level in levels:
+                challenge_data = dict(challenge)
+                # Parse hints from JSON
+                try:
+                    challenge_data['hints'] = json.loads(challenge_data['hints'])
+                except:
+                    challenge_data['hints'] = []
+                levels[level]['challenges'].append(challenge_data)
+        
+        return jsonify(levels)
+    finally:
+        conn.close()
+
+@app.route('/api/challenge/<int:challenge_id>')
+@require_login
+def api_challenge_detail(challenge_id):
+    """Get detailed information about a specific challenge"""
+    conn = get_db_connection()
+    try:
+        challenge = conn.execute('''
+            SELECT id, title, description, difficulty_level, category, hints, 
+                   max_score, time_limit_minutes, expected_result_count
+            FROM challenges 
+            WHERE id = ? AND is_active = 1
+        ''', (challenge_id,)).fetchone()
+        
+        if not challenge:
+            return jsonify({'error': 'Challenge not found'}), 404
+        
+        challenge_data = dict(challenge)
+        # Parse hints from JSON
+        try:
+            challenge_data['hints'] = json.loads(challenge_data['hints'])
+        except:
+            challenge_data['hints'] = []
+            
+        # Get user's progress on this challenge
+        attempts = conn.execute('''
+            SELECT id, query_text, is_correct, score, hints_used, execution_time_ms,
+                   created_at
+            FROM challenge_attempts 
+            WHERE user_id = ? AND challenge_id = ?
+            ORDER BY created_at DESC
+            LIMIT 5
+        ''', (session.get('user_id'), challenge_id)).fetchall()
+        
+        challenge_data['recent_attempts'] = [dict(attempt) for attempt in attempts]
+        
+        return jsonify(challenge_data)
+    finally:
+        conn.close()
+
+@app.route('/api/challenge/<int:challenge_id>/attempt', methods=['POST'])
+@require_login
+def api_challenge_attempt(challenge_id):
+    """Submit an attempt for a challenge"""
+    data = request.get_json()
+    query = data.get('query', '').strip()
+    hints_used = data.get('hints_used', 0)
+    
+    if not query:
+        return jsonify({'error': 'Query is required'}), 400
+    
+    conn = get_db_connection()
+    try:
+        # Get challenge details
+        challenge = conn.execute('''
+            SELECT id, title, expected_result_count, expected_query, max_score
+            FROM challenges 
+            WHERE id = ? AND is_active = 1
+        ''', (challenge_id,)).fetchone()
+        
+        if not challenge:
+            return jsonify({'error': 'Challenge not found'}), 404
+        
+        # Execute the query and measure performance
+        start_time = time.time()
+        try:
+            # Execute the user's query against the database
+            user_conn = get_db_connection()
+            result = user_conn.execute(query).fetchall()
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Evaluate the result
+            result_count = len(result)
+            expected_count = challenge['expected_result_count'] or 0
+            
+            # Basic correctness check - more sophisticated evaluation could be added
+            is_correct = False
+            score = 0
+            
+            if expected_count > 0:
+                # Check if result count is close to expected (within 10% tolerance)
+                tolerance = max(1, int(expected_count * 0.1))
+                if abs(result_count - expected_count) <= tolerance:
+                    is_correct = True
+                    
+                    # Calculate score based on multiple factors
+                    base_score = challenge['max_score'] or 100
+                    
+                    # Penalty for hints used (10 points per hint)
+                    hint_penalty = hints_used * 10
+                    
+                    # Bonus for efficiency (faster queries get higher scores)
+                    efficiency_bonus = max(0, 20 - (execution_time_ms // 100))
+                    
+                    score = max(0, base_score - hint_penalty + efficiency_bonus)
+            
+            # Record the attempt
+            conn.execute('''
+                INSERT INTO challenge_attempts 
+                (user_id, challenge_id, query_text, result_count, is_correct, 
+                 score, hints_used, execution_time_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (session.get('user_id'), challenge_id, query, result_count, 
+                  is_correct, score, hints_used, execution_time_ms))
+            
+            # Update user progress
+            conn.execute('''
+                INSERT OR REPLACE INTO user_challenge_progress 
+                (user_id, challenge_id, best_score, total_attempts, is_completed)
+                VALUES (?, ?, 
+                        COALESCE(MAX(best_score, ?), ?),
+                        COALESCE((SELECT total_attempts FROM user_challenge_progress 
+                                 WHERE user_id = ? AND challenge_id = ?), 0) + 1,
+                        ?)
+            ''', (session.get('user_id'), challenge_id, score, score, 
+                  session.get('user_id'), challenge_id, is_correct))
+            
+            conn.commit()
+            
+            return jsonify({
+                'success': True,
+                'is_correct': is_correct,
+                'score': score,
+                'result_count': result_count,
+                'expected_count': expected_count,
+                'execution_time_ms': execution_time_ms,
+                'hints_used': hints_used,
+                'feedback': 'Correct! Well done!' if is_correct else 
+                           f'Not quite right. Your query returned {result_count} rows, but we expected around {expected_count}.'
+            })
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'Query execution error: {str(e)}',
+                'is_correct': False,
+                'score': 0
+            })
+        finally:
+            if 'user_conn' in locals():
+                user_conn.close()
+                
+    finally:
+        conn.close()
+
+@app.route('/api/user/progress')
+@require_login
+def api_user_progress():
+    """Get user's overall progress across all challenges"""
+    conn = get_db_connection()
+    try:
+        progress = conn.execute('''
+            SELECT c.difficulty_level, c.title, c.category, c.max_score,
+                   p.best_score, p.total_attempts, p.is_completed
+            FROM challenges c
+            LEFT JOIN user_challenge_progress p ON c.id = p.challenge_id 
+                AND p.user_id = ?
+            WHERE c.is_active = 1
+            ORDER BY c.difficulty_level, c.id
+        ''', (session.get('user_id'),)).fetchall()
+        
+        # Calculate overall statistics
+        total_challenges = len(progress)
+        completed_challenges = sum(1 for p in progress if p['is_completed'])
+        total_score = sum(p['best_score'] or 0 for p in progress)
+        max_possible_score = sum(p['max_score'] or 100 for p in progress)
+        
+        return jsonify({
+            'challenges': [dict(p) for p in progress],
+            'stats': {
+                'total_challenges': total_challenges,
+                'completed_challenges': completed_challenges,
+                'completion_rate': round(completed_challenges / total_challenges * 100, 1) if total_challenges > 0 else 0,
+                'total_score': total_score,
+                'max_possible_score': max_possible_score,
+                'score_percentage': round(total_score / max_possible_score * 100, 1) if max_possible_score > 0 else 0
+            }
+        })
+    finally:
+        conn.close()
 
 @app.route('/health')
 def health():

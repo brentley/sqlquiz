@@ -221,6 +221,78 @@ footer {
     color: #dc3545;
 }
 
+/* Challenge Mode specific styling */
+.challenge-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.challenge-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.challenge-level-basic {
+    border-left: 4px solid #198754;
+}
+
+.challenge-level-intermediate {
+    border-left: 4px solid #ffc107;
+}
+
+.challenge-level-advanced {
+    border-left: 4px solid #dc3545;
+}
+
+.challenge-level-expert {
+    border-left: 4px solid #6f42c1;
+}
+
+.bg-light-success {
+    background-color: #d1e7dd;
+}
+
+.bg-light-danger {
+    background-color: #f8d7da;
+}
+
+.progress-dashboard {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.challenge-timer {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 0.375rem;
+    padding: 0.5rem 1rem;
+}
+
+.hint-box {
+    background-color: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.attempt-history {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.challenge-score {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.challenge-feedback {
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
 /* Schema modal styling */
 .modal-xl {
     max-width: 1200px;

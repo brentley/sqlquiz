@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+
+{% block title %}Challenge Mode - Data Explorer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <!-- Hero Section -->
+        <div class="text-center mb-5">
+            <h1 class="display-5 mb-3">
+                <i class="fas fa-trophy text-warning me-3"></i>Challenge Mode
+            </h1>
+            <p class="lead text-muted">
+                Test your data analysis skills with progressive challenges. 
+                Solve real-world healthcare data problems and track your progress!
+            </p>
+        </div>
+
+        <!-- Progress Dashboard -->
+        <div class="row mb-5">
+            <div class="col-md-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>Your Progress
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="progressDashboard">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 text-muted">Loading your progress...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Challenge Levels -->
+        <div id="challengeLevels">
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading challenges...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Challenge Detail Modal -->
+<div class="modal fade" id="challengeModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="challengeTitle">Challenge</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="challengeContent">
+                    <!-- Challenge content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentChallenge = null;
+let challengeStartTime = null;
+let hintsUsed = 0;
+let sqlEditor = null;
+
+// Load content when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserProgress();
+    loadChallenges();
+});
+
+function loadUserProgress() {
+    fetch('/api/user/progress')
+        .then(response => response.json())
+        .then(data => {
+            displayProgressDashboard(data);
+        })
+        .catch(error => {
+            console.error('Error loading progress:', error);
+            document.getElementById('progressDashboard').innerHTML = 
+                '<div class="alert alert-danger">Error loading progress data</div>';
+        });
+}
+
+function displayProgressDashboard(data) {
+    const container = document.getElementById('progressDashboard');
+    const stats = data.stats;
+    
+    const html = `
+        <div class="row">
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-primary">${stats.completed_challenges}</h4>
+                    <small class="text-muted">Challenges Completed</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-success">${stats.completion_rate}%</h4>
+                    <small class="text-muted">Completion Rate</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-warning">${stats.total_score}</h4>
+                    <small class="text-muted">Total Score</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h4 class="text-info">${stats.score_percentage}%</h4>
+                    <small class="text-muted">Score Percentage</small>
+                </div>
+            </div>
+        </div>
+        <div class="mt-3">
+            <div class="progress">
+                <div class="progress-bar bg-success" role="progressbar" 
+                     style="width: ${stats.completion_rate}%" 
+                     aria-valuenow="${stats.completion_rate}" 
+                     aria-valuemin="0" aria-valuemax="100">
+                </div>
+            </div>
+            <small class="text-muted mt-1">
+                ${stats.completed_challenges} of ${stats.total_challenges} challenges completed
+            </small>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function loadChallenges() {
+    fetch('/api/challenges')
+        .then(response => response.json())
+        .then(levels => {
+            displayChallenges(levels);
+        })
+        .catch(error => {
+            console.error('Error loading challenges:', error);
+            document.getElementById('challengeLevels').innerHTML = 
+                '<div class="alert alert-danger">Error loading challenges</div>';
+        });
+}
+
+function displayChallenges(levels) {
+    const container = document.getElementById('challengeLevels');
+    let html = '';
+    
+    const levelColors = {
+        1: 'success',
+        2: 'warning', 
+        3: 'danger',
+        4: 'dark'
+    };
+    
+    const levelIcons = {
+        1: 'fa-seedling',
+        2: 'fa-fire',
+        3: 'fa-bolt',
+        4: 'fa-crown'
+    };
+    
+    Object.keys(levels).forEach(levelNum => {
+        const level = levels[levelNum];
+        const color = levelColors[levelNum] || 'primary';
+        const icon = levelIcons[levelNum] || 'fa-trophy';
+        
+        if (level.challenges.length > 0) {
+            html += `
+                <div class="mb-4">
+                    <h3 class="text-${color}">
+                        <i class="fas ${icon} me-2"></i>${level.name} Challenges
+                    </h3>
+                    <div class="row">
+            `;
+            
+            level.challenges.forEach(challenge => {
+                html += `
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header bg-${color} text-white">
+                                <h6 class="mb-0">${challenge.title}</h6>
+                                <small>
+                                    <i class="fas fa-clock me-1"></i>${challenge.time_limit_minutes} minutes
+                                    <span class="float-end">
+                                        <i class="fas fa-star me-1"></i>${challenge.max_score} pts
+                                    </span>
+                                </small>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text small">${challenge.description}</p>
+                                <div class="mb-2">
+                                    <span class="badge bg-secondary">${challenge.category}</span>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-light">
+                                <button class="btn btn-${color} btn-sm w-100" 
+                                        onclick="openChallenge(${challenge.id})">
+                                    <i class="fas fa-play me-2"></i>Start Challenge
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    container.innerHTML = html;
+}
+
+function openChallenge(challengeId) {
+    fetch(`/api/challenge/${challengeId}`)
+        .then(response => response.json())
+        .then(challenge => {
+            displayChallengeModal(challenge);
+            challengeStartTime = Date.now();
+            hintsUsed = 0;
+            currentChallenge = challenge;
+        })
+        .catch(error => {
+            console.error('Error loading challenge:', error);
+        });
+}
+
+function displayChallengeModal(challenge) {
+    document.getElementById('challengeTitle').textContent = challenge.title;
+    
+    const levelColors = {1: 'success', 2: 'warning', 3: 'danger', 4: 'dark'};
+    const color = levelColors[challenge.difficulty_level] || 'primary';
+    
+    const content = `
+        <div class="row">
+            <div class="col-md-8">
+                <div class="mb-3">
+                    <h6>Challenge Description</h6>
+                    <p>${challenge.description}</p>
+                    <div class="mb-2">
+                        <span class="badge bg-${color}">${challenge.category}</span>
+                        <span class="badge bg-secondary ms-1">
+                            <i class="fas fa-clock me-1"></i>${challenge.time_limit_minutes} minutes
+                        </span>
+                        <span class="badge bg-warning ms-1">
+                            <i class="fas fa-star me-1"></i>${challenge.max_score} points
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Your SQL Query</h6>
+                    <textarea id="challengeEditor" class="form-control" rows="8" 
+                              placeholder="Write your SQL query here..."></textarea>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button class="btn btn-${color}" onclick="submitChallenge()">
+                        <i class="fas fa-play me-2"></i>Submit Query
+                    </button>
+                    <button class="btn btn-outline-info" onclick="getHint()">
+                        <i class="fas fa-lightbulb me-2"></i>Get Hint (<span id="hintsCount">0</span> used)
+                    </button>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card border-0 bg-light">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-lightbulb me-2"></i>Hints
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="hintsContainer">
+                            <p class="text-muted">Click "Get Hint" when you need help!</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card border-0 bg-light mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-history me-2"></i>Recent Attempts
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="attemptsContainer">
+                            ${challenge.recent_attempts.length > 0 ? 
+                              challenge.recent_attempts.map(attempt => `
+                                <div class="mb-2 p-2 border rounded">
+                                    <small class="text-muted">${new Date(attempt.created_at).toLocaleString()}</small>
+                                    <div class="${attempt.is_correct ? 'text-success' : 'text-danger'}">
+                                        <i class="fas fa-${attempt.is_correct ? 'check' : 'times'} me-1"></i>
+                                        Score: ${attempt.score}
+                                    </div>
+                                </div>
+                              `).join('') :
+                              '<p class="text-muted">No previous attempts</p>'
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="challengeResults" class="mt-4" style="display: none;">
+            <!-- Results will be shown here -->
+        </div>
+    `;
+    
+    document.getElementById('challengeContent').innerHTML = content;
+    
+    // Initialize CodeMirror for the challenge editor
+    if (sqlEditor) {
+        sqlEditor.toTextArea();
+    }
+    
+    sqlEditor = CodeMirror.fromTextArea(document.getElementById('challengeEditor'), {
+        mode: 'text/x-sql',
+        theme: 'default',
+        lineNumbers: true,
+        indentWithTabs: true,
+        smartIndent: true,
+        lineWrapping: true
+    });
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('challengeModal'));
+    modal.show();
+}
+
+function getHint() {
+    if (!currentChallenge || hintsUsed >= currentChallenge.hints.length) {
+        return;
+    }
+    
+    const hint = currentChallenge.hints[hintsUsed];
+    hintsUsed++;
+    
+    const hintsContainer = document.getElementById('hintsContainer');
+    const hintHtml = `
+        <div class="alert alert-info alert-sm mb-2">
+            <strong>Hint ${hintsUsed}:</strong> ${hint}
+        </div>
+    `;
+    
+    if (hintsUsed === 1) {
+        hintsContainer.innerHTML = hintHtml;
+    } else {
+        hintsContainer.innerHTML += hintHtml;
+    }
+    
+    document.getElementById('hintsCount').textContent = hintsUsed;
+}
+
+function submitChallenge() {
+    if (!currentChallenge || !sqlEditor) {
+        return;
+    }
+    
+    const query = sqlEditor.getValue().trim();
+    if (!query) {
+        alert('Please enter a SQL query first.');
+        return;
+    }
+    
+    const resultsContainer = document.getElementById('challengeResults');
+    resultsContainer.style.display = 'block';
+    resultsContainer.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Evaluating your query...</p>
+        </div>
+    `;
+    
+    fetch(`/api/challenge/${currentChallenge.id}/attempt`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            query: query,
+            hints_used: hintsUsed
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        displayChallengeResults(result);
+        // Reload progress after attempt
+        loadUserProgress();
+    })
+    .catch(error => {
+        console.error('Error submitting challenge:', error);
+        resultsContainer.innerHTML = `
+            <div class="alert alert-danger">
+                Error submitting challenge: ${error.message}
+            </div>
+        `;
+    });
+}
+
+function displayChallengeResults(result) {
+    const resultsContainer = document.getElementById('challengeResults');
+    
+    let html = `
+        <div class="card border-0 ${result.is_correct ? 'border-success' : 'border-danger'} border-start border-4">
+            <div class="card-header ${result.is_correct ? 'bg-light-success' : 'bg-light-danger'}">
+                <h6 class="mb-0 ${result.is_correct ? 'text-success' : 'text-danger'}">
+                    <i class="fas fa-${result.is_correct ? 'check-circle' : 'times-circle'} me-2"></i>
+                    ${result.is_correct ? 'Correct!' : 'Not Quite Right'}
+                </h6>
+            </div>
+            <div class="card-body">
+                <p>${result.feedback}</p>
+                <div class="row">
+                    <div class="col-md-3">
+                        <strong>Score:</strong> ${result.score} points
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Results:</strong> ${result.result_count} rows
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Time:</strong> ${result.execution_time_ms}ms
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Hints Used:</strong> ${result.hints_used}
+                    </div>
+                </div>
+    `;
+    
+    if (!result.is_correct && result.expected_count > 0) {
+        html += `
+            <div class="mt-3">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Expected approximately ${result.expected_count} rows in the result.
+                </small>
+            </div>
+        `;
+    }
+    
+    html += `
+            </div>
+        </div>
+    `;
+    
+    resultsContainer.innerHTML = html;
+}
+</script>
+{% endblock %}

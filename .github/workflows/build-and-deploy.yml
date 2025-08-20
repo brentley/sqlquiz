@@ -42,7 +42,7 @@ jobs:
           python3 -c "import flask; print('Flask imports successfully')"
           python3 -c "import sqlite3; print('SQLite imports successfully')"
           echo "Testing database..."
-          python3 -c "import sqlite3; conn = sqlite3.connect('healthcare_quiz.db'); print(f'Database has {len(conn.execute(\"SELECT name FROM sqlite_master WHERE type=\\"table\\"\").fetchall())} tables'); conn.close()"
+          python3 -c "import sqlite3; conn = sqlite3.connect('healthcare_quiz.db'); tables = conn.execute('SELECT name FROM sqlite_master WHERE type=\"table\"').fetchall(); print(f'Database has {len(tables)} tables'); conn.close()"
       
       - name: Basic functionality test  
         run: |

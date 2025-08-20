@@ -170,6 +170,26 @@ def clean_column_name(column_name):
     return cleaned
 
 
+def deduplicate_column_names(column_names):
+    """Ensure all column names are unique by adding suffixes to duplicates"""
+    seen = {}
+    result = []
+    
+    for name in column_names:
+        if name in seen:
+            # This is a duplicate, add a suffix
+            seen[name] += 1
+            unique_name = f"{name}_{seen[name]}"
+        else:
+            # First occurrence
+            seen[name] = 0
+            unique_name = name
+        
+        result.append(unique_name)
+    
+    return result
+
+
 def process_csv_upload(file, clear_existing=False):
     """Process uploaded CSV file and import into database"""
     if clear_existing:
@@ -242,8 +262,9 @@ def process_single_csv(file_obj, filename):
         # Parse CSV
         csv_reader = csv.DictReader(io.StringIO(content))
         
-        # Clean column names
+        # Clean column names and handle duplicates
         cleaned_fieldnames = [clean_column_name(name) for name in csv_reader.fieldnames]
+        cleaned_fieldnames = deduplicate_column_names(cleaned_fieldnames)
         
         # Read sample rows for type detection
         sample_rows = []

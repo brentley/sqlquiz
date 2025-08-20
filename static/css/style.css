@@ -1,5 +1,15 @@
 /* Custom styles for SQLQuiz */
 
+/* Code example styling - ensure visibility */
+.bg-dark pre, .bg-dark code {
+    color: #f8f9fa !important;
+    background: transparent !important;
+}
+
+.bg-dark pre code {
+    color: inherit !important;
+}
+
 /* CodeMirror customizations */
 .CodeMirror {
     border: none;

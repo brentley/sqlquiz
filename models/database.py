@@ -232,6 +232,8 @@ def verify_user_database_schema(conn):
                     conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
                 elif column == 'email':
                     conn.execute("ALTER TABLE users ADD COLUMN email TEXT")
+                elif column == 'created_at':
+                    conn.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
                 elif column == 'last_login':
                     conn.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
                 elif column == 'is_active':
@@ -243,6 +245,71 @@ def verify_user_database_schema(conn):
     except Exception as e:
         print(f"Error verifying users table schema: {e}")
         # If users table doesn't exist, it will be created by create_user_tables
+    
+    # Check user_sessions table schema
+    try:
+        sessions_info = conn.execute("PRAGMA table_info(user_sessions)").fetchall()
+        sessions_columns = [col['name'] for col in sessions_info]
+        print(f"User_sessions table columns: {sessions_columns}")
+        
+        required_sessions_columns = ['id', 'user_id', 'session_token', 'login_time', 'last_activity', 'ip_address', 'user_agent', 'is_active']
+        missing_columns = [col for col in required_sessions_columns if col not in sessions_columns]
+        
+        if missing_columns:
+            print(f"Missing columns in user_sessions table: {missing_columns}")
+            # Add missing columns
+            for column in missing_columns:
+                if column == 'session_token':
+                    conn.execute("ALTER TABLE user_sessions ADD COLUMN session_token TEXT")
+                elif column == 'login_time':
+                    conn.execute("ALTER TABLE user_sessions ADD COLUMN login_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                elif column == 'last_activity':
+                    conn.execute("ALTER TABLE user_sessions ADD COLUMN last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                elif column == 'ip_address':
+                    conn.execute("ALTER TABLE user_sessions ADD COLUMN ip_address TEXT")
+                elif column == 'user_agent':
+                    conn.execute("ALTER TABLE user_sessions ADD COLUMN user_agent TEXT")
+                elif column == 'is_active':
+                    conn.execute("ALTER TABLE user_sessions ADD COLUMN is_active BOOLEAN DEFAULT 1")
+                print(f"Added missing column: {column}")
+        else:
+            print("User_sessions table schema is complete")
+            
+    except Exception as e:
+        print(f"Error verifying user_sessions table schema: {e}")
+        # If table doesn't exist, it will be created by create_user_tables
+    
+    # Check query_logs table schema
+    try:
+        logs_info = conn.execute("PRAGMA table_info(query_logs)").fetchall()
+        logs_columns = [col['name'] for col in logs_info]
+        print(f"Query_logs table columns: {logs_columns}")
+        
+        required_logs_columns = ['id', 'user_id', 'session_id', 'query_text', 'execution_time_ms', 'row_count', 'success', 'error_message', 'timestamp']
+        missing_columns = [col for col in required_logs_columns if col not in logs_columns]
+        
+        if missing_columns:
+            print(f"Missing columns in query_logs table: {missing_columns}")
+            # Add missing columns
+            for column in missing_columns:
+                if column == 'session_id':
+                    conn.execute("ALTER TABLE query_logs ADD COLUMN session_id TEXT")
+                elif column == 'execution_time_ms':
+                    conn.execute("ALTER TABLE query_logs ADD COLUMN execution_time_ms REAL")
+                elif column == 'row_count':
+                    conn.execute("ALTER TABLE query_logs ADD COLUMN row_count INTEGER")
+                elif column == 'success':
+                    conn.execute("ALTER TABLE query_logs ADD COLUMN success BOOLEAN NOT NULL DEFAULT 0")
+                elif column == 'error_message':
+                    conn.execute("ALTER TABLE query_logs ADD COLUMN error_message TEXT")
+                elif column == 'timestamp':
+                    conn.execute("ALTER TABLE query_logs ADD COLUMN timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+                print(f"Added missing column: {column}")
+        else:
+            print("Query_logs table schema is complete")
+            
+    except Exception as e:
+        print(f"Error verifying query_logs table schema: {e}")
     
     # Verify other important tables exist
     tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()

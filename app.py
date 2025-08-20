@@ -867,17 +867,43 @@ def api_sample_queries():
             join_column = None
             for col in t1_columns:
                 if col in t2_columns:
-                    # Clean column name and validate it exists
-                    clean_col = col.strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+                    # Clean column name more aggressively and validate it exists
+                    clean_col = col.strip()
+                    # Remove various problematic characters
+                    for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c']:
+                        clean_col = clean_col.replace(char, '')
+                    
+                    # Skip if column name is empty after cleaning
+                    if not clean_col:
+                        print(f"Skipping empty column after cleaning: {repr(col)}")
+                        continue
+                        
                     try:
-                        # Test if we can actually query this column
-                        conn.execute(f"SELECT `{clean_col}` FROM `{table1}` LIMIT 1").fetchone()
-                        conn.execute(f"SELECT `{clean_col}` FROM `{table2}` LIMIT 1").fetchone()
-                        join_column = clean_col
-                        print(f"Found valid join column: {clean_col}")
-                        break
+                        # Test if we can actually query this column with different quote styles
+                        test_queries = [
+                            f"SELECT `{clean_col}` FROM `{table1}` LIMIT 1",
+                            f"SELECT [{clean_col}] FROM `{table1}` LIMIT 1", 
+                            f"SELECT \"{clean_col}\" FROM `{table1}` LIMIT 1",
+                            f"SELECT {clean_col} FROM `{table1}` LIMIT 1"
+                        ]
+                        
+                        query_worked = False
+                        for test_query in test_queries:
+                            try:
+                                conn.execute(test_query).fetchone()
+                                conn.execute(test_query.replace(table1, table2)).fetchone()
+                                join_column = clean_col
+                                print(f"Found valid join column: {repr(clean_col)} using query: {test_query}")
+                                query_worked = True
+                                break
+                            except:
+                                continue
+                        
+                        if query_worked:
+                            break
+                            
                     except Exception as e:
-                        print(f"Column '{col}' (cleaned: '{clean_col}') validation failed: {e}")
+                        print(f"Column '{repr(col)}' (cleaned: '{repr(clean_col)}') validation failed: {e}")
                         continue
             
             # If no exact match, look for ID patterns
@@ -932,35 +958,75 @@ LIMIT 15;"""
         print(f"Columns in {first_table}: {[col['name'] for col in columns]}")
         
         for col in columns:
-            # Clean column name
-            clean_name = col['name'].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+            # Clean column name more aggressively
+            clean_name = col['name'].strip()
+            for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c']:
+                clean_name = clean_name.replace(char, '')
+            
+            if not clean_name:
+                print(f"Skipping empty column after cleaning: {repr(col['name'])}")
+                continue
+                
             col_name = clean_name.lower()
             
             if col['type'] == 'TEXT' and not col_name.endswith('_id') and not col_name == 'id':
-                # Validate the column exists
-                try:
-                    conn.execute(f"SELECT `{clean_name}` FROM `{first_table}` LIMIT 1").fetchone()
-                    group_column = clean_name
-                    print(f"Found valid group column: {clean_name}")
+                # Validate the column exists with multiple quote styles
+                test_queries = [
+                    f"SELECT `{clean_name}` FROM `{first_table}` LIMIT 1",
+                    f"SELECT [{clean_name}] FROM `{first_table}` LIMIT 1",
+                    f"SELECT \"{clean_name}\" FROM `{first_table}` LIMIT 1",
+                    f"SELECT {clean_name} FROM `{first_table}` LIMIT 1"
+                ]
+                
+                query_worked = False
+                for test_query in test_queries:
+                    try:
+                        conn.execute(test_query).fetchone()
+                        group_column = clean_name
+                        print(f"Found valid group column: {repr(clean_name)} using query: {test_query}")
+                        query_worked = True
+                        break
+                    except:
+                        continue
+                        
+                if query_worked:
                     break
-                except Exception as e:
-                    print(f"Group column '{col['name']}' (cleaned: '{clean_name}') validation failed: {e}")
-                    continue
+                else:
+                    print(f"Group column '{repr(col['name'])}' (cleaned: '{repr(clean_name)}') validation failed with all quote styles")
         
         # Look for ID or countable columns
         for col in columns:
-            clean_name = col['name'].strip().replace('•', '').replace('\x00', '').replace('\r', '').replace('\n', '')
+            clean_name = col['name'].strip()
+            for char in ['•', '\x00', '\r', '\n', '\t', '\x0b', '\x0c']:
+                clean_name = clean_name.replace(char, '')
+                
+            if not clean_name:
+                continue
+                
             col_name = clean_name.lower()
             
             if col_name.endswith('_id') or col_name == 'id' or col['pk']:
-                try:
-                    conn.execute(f"SELECT `{clean_name}` FROM `{first_table}` LIMIT 1").fetchone()
-                    count_column = clean_name
-                    print(f"Found valid count column: {clean_name}")
+                # Validate with multiple quote styles
+                test_queries = [
+                    f"SELECT `{clean_name}` FROM `{first_table}` LIMIT 1",
+                    f"SELECT [{clean_name}] FROM `{first_table}` LIMIT 1",
+                    f"SELECT \"{clean_name}\" FROM `{first_table}` LIMIT 1",
+                    f"SELECT {clean_name} FROM `{first_table}` LIMIT 1"
+                ]
+                
+                query_worked = False
+                for test_query in test_queries:
+                    try:
+                        conn.execute(test_query).fetchone()
+                        count_column = clean_name
+                        print(f"Found valid count column: {repr(clean_name)} using query: {test_query}")
+                        query_worked = True
+                        break
+                    except:
+                        continue
+                        
+                if query_worked:
                     break
-                except Exception as e:
-                    print(f"Count column '{col['name']}' (cleaned: '{clean_name}') validation failed: {e}")
-                    continue
         
         if not group_column:
             # Use first available column as fallback
@@ -984,6 +1050,46 @@ GROUP BY {group_column}
 ORDER BY record_count DESC;"""
         
         return jsonify(queries)
+        
+    finally:
+        conn.close()
+
+@app.route('/api/debug-columns')
+@require_login  
+def api_debug_columns():
+    """Debug endpoint to see what columns are actually detected"""
+    conn = get_db_connection()
+    try:
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
+        debug_info = {}
+        
+        for table in tables:
+            table_name = table['name']
+            
+            # Get column info from PRAGMA
+            columns_pragma = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+            
+            # Try to get actual column names from a sample query
+            try:
+                sample_query = conn.execute(f"SELECT * FROM `{table_name}` LIMIT 1").fetchone()
+                actual_columns = list(sample_query.keys()) if sample_query else []
+            except Exception as e:
+                actual_columns = f"Error: {str(e)}"
+            
+            debug_info[table_name] = {
+                'pragma_columns': [
+                    {
+                        'name': repr(col['name']),  # Use repr to show hidden characters
+                        'clean_name': col['name'].strip().replace('•', '').replace('\x00', ''),
+                        'type': col['type']
+                    }
+                    for col in columns_pragma
+                ],
+                'actual_query_columns': actual_columns,
+                'column_count': len(columns_pragma)
+            }
+        
+        return jsonify(debug_info)
         
     finally:
         conn.close()

@@ -43,29 +43,52 @@
                             <i class="fas fa-search me-1"></i>Data Explorer
                         </a>
                     </li>
+                    {% if session.admin_user %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('data_upload') }}">
                             <i class="fas fa-cloud-upload-alt me-1"></i>Upload Data
                         </a>
                     </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('challenges') }}">
                             <i class="fas fa-trophy me-1"></i>Challenges
                         </a>
                     </li>
+                    {% if session.admin_user %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
                             <i class="fas fa-chart-bar me-1"></i>Admin
                         </a>
                     </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin_login') }}">
+                            <i class="fas fa-lock me-1"></i>Admin Login
+                        </a>
+                    </li>
+                    {% endif %}
                     {% if session.username %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" 
                            data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-user me-1"></i>{{ session.username }}
+                            {% if session.admin_user %}
+                                <i class="fas fa-user-shield me-1 text-warning"></i>{{ session.username }}
+                                <span class="badge bg-warning text-dark ms-1">Admin</span>
+                            {% else %}
+                                <i class="fas fa-user me-1"></i>{{ session.username }}
+                            {% endif %}
                         </a>
                         <ul class="dropdown-menu">
                             <li><span class="dropdown-header">Session Info</span></li>
+                            {% if session.admin_user %}
+                            <li><span class="dropdown-item-text">
+                                <small class="text-success">
+                                    <i class="fas fa-shield-alt me-1"></i>
+                                    Admin: {{ session.admin_user.email }}
+                                </small>
+                            </span></li>
+                            {% endif %}
                             <li><span class="dropdown-item-text">
                                 <small class="text-muted">
                                     <i class="fas fa-clock me-1"></i>
@@ -73,6 +96,11 @@
                                 </small>
                             </span></li>
                             <li><hr class="dropdown-divider"></li>
+                            {% if session.admin_user %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin_logout') }}">
+                                <i class="fas fa-sign-out-alt me-2"></i>Admin Logout
+                            </a></li>
+                            {% endif %}
                             <li><a class="dropdown-item" href="{{ url_for('logout') }}">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
                             </a></li>

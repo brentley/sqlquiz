@@ -22,14 +22,22 @@ from models.challenges import (
 )
 from utils.data_processing import (
     process_csv_upload, get_database_schema, get_table_names, 
-    get_sample_data, generate_sample_queries
+    get_sample_data, generate_sample_queries, delete_table,
+    rename_table, modify_column_type, get_table_info
 )
 from utils.query_validation import execute_safe_query
+from models.admin_auth import (
+    init_oauth, require_admin, is_admin_email, create_admin_user, 
+    create_admin_session, invalidate_admin_session, log_admin_action
+)
 
 
 # Flask app initialization
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'your-secret-key-change-in-production')
+
+# Initialize OAuth
+oauth, oauth_client = init_oauth(app)
 
 # Track app start time for health checks
 app.start_time = time.time()
@@ -135,7 +143,7 @@ def data_explorer():
 
 
 @app.route('/upload', methods=['GET', 'POST'])
-@require_login
+@require_admin
 def data_upload():
     """Data upload interface and processing"""
     if request.method == 'POST':
@@ -151,6 +159,10 @@ def data_upload():
         
         # Check if clear existing data was requested
         clear_existing = 'clear_existing' in request.form
+        
+        # Log admin action
+        admin_user = session.get('admin_user', {})
+        log_admin_action(admin_user.get('id'), 'data_upload', f'Uploaded file: {file.filename}, Clear existing: {clear_existing}')
         
         # Process the upload
         result = process_csv_upload(file, clear_existing)
@@ -183,26 +195,135 @@ def challenges():
     return render_template('challenges.html')
 
 
-# Admin routes
+# Admin authentication routes
+@app.route('/admin/login')
+def admin_login():
+    """Admin login page"""
+    return render_template('admin/login.html')
+
+
+@app.route('/admin/auth')
+def admin_auth():
+    """Initiate OAuth authentication for admin"""
+    if not oauth_client:
+        flash('OAuth not configured. Please contact administrator.', 'error')
+        return redirect(url_for('admin_login'))
+    
+    redirect_uri = url_for('admin_auth_callback', _external=True)
+    return oauth_client.authorize_redirect(redirect_uri)
+
+
+@app.route('/admin/auth/callback')
+def admin_auth_callback():
+    """Handle OAuth callback for admin authentication"""
+    if not oauth_client:
+        flash('OAuth not configured. Please contact administrator.', 'error')
+        return redirect(url_for('admin_login'))
+    
+    try:
+        # Get token from OAuth provider
+        token = oauth_client.authorize_access_token()
+        
+        # Get user info from OAuth provider
+        user_info = oauth_client.parse_id_token(token)
+        email = user_info.get('email')
+        name = user_info.get('name', email.split('@')[0] if email else 'Unknown')
+        
+        if not email:
+            flash('Email not provided by OAuth provider', 'error')
+            return redirect(url_for('admin_login'))
+        
+        # Check if email is in admin whitelist
+        if not is_admin_email(email):
+            flash('Access denied. You are not authorized as an admin.', 'error')
+            log_admin_action(None, 'unauthorized_login_attempt', f'Email: {email}')
+            return redirect(url_for('admin_login'))
+        
+        # Create or get admin user
+        user_id = create_admin_user(email, name)
+        if not user_id:
+            flash('Failed to create admin user session', 'error')
+            return redirect(url_for('admin_login'))
+        
+        # Create admin session
+        session_token = create_admin_session(user_id, email, name)
+        if not session_token:
+            flash('Failed to create admin session', 'error')
+            return redirect(url_for('admin_login'))
+        
+        # Store in session
+        session['admin_session_token'] = session_token
+        session['admin_user'] = {
+            'id': user_id,
+            'email': email,
+            'name': name
+        }
+        
+        # Log successful login
+        log_admin_action(user_id, 'admin_login', f'OAuth login successful for {email}')
+        
+        flash('Admin login successful', 'success')
+        
+        # Redirect to intended page or admin dashboard
+        next_url = session.pop('admin_next', None)
+        return redirect(next_url or url_for('admin_dashboard'))
+        
+    except Exception as e:
+        print(f"OAuth callback error: {e}")
+        flash('Authentication failed. Please try again.', 'error')
+        return redirect(url_for('admin_login'))
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Admin logout"""
+    if 'admin_session_token' in session:
+        # Log logout action
+        admin_user = session.get('admin_user', {})
+        log_admin_action(admin_user.get('id'), 'admin_logout', 'Admin logged out')
+        
+        # Invalidate session
+        invalidate_admin_session(session['admin_session_token'])
+        
+        # Clear session
+        session.pop('admin_session_token', None)
+        session.pop('admin_user', None)
+    
+    flash('Admin logout successful', 'success')
+    return redirect(url_for('admin_login'))
+
+
+# Admin routes (now protected)
 @app.route('/admin')
-@require_login
+@require_admin
 def admin_dashboard():
     """Admin dashboard"""
     return render_template('admin/dashboard.html')
 
 
 @app.route('/admin/candidates')
-@require_login
+@require_admin
 def admin_candidates():
     """Candidate management"""
     return render_template('admin/candidates.html')
 
 
 @app.route('/admin/candidate/<username>')
-@require_login
+@require_admin
 def admin_candidate_detail(username):
     """Detailed candidate view"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_candidate_detail', f'Viewed details for candidate: {username}')
     return render_template('admin/candidate_detail.html', username=username)
+
+
+@app.route('/admin/tables')
+@require_admin
+def admin_tables():
+    """Table management interface"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_table_management', 'Accessed table management interface')
+    return render_template('admin/tables.html')
 
 
 # Schema reference page
@@ -290,7 +411,7 @@ def api_sample_data(table_name):
 
 
 @app.route('/api/upload', methods=['POST'])
-@require_login
+@require_admin
 def api_upload():
     """Upload CSV/ZIP files"""
     if 'file' not in request.files:
@@ -301,6 +422,11 @@ def api_upload():
         return jsonify({'success': False, 'error': 'No file selected'})
     
     clear_existing = request.form.get('clear_existing') == 'true'
+    
+    # Log admin action
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'api_data_upload', f'API upload: {file.filename}, Clear existing: {clear_existing}')
+    
     result = process_csv_upload(file, clear_existing)
     
     return jsonify(result)
@@ -403,18 +529,23 @@ def api_user_progress():
     return jsonify(get_user_progress(session.get('user_id')))
 
 
-# API Routes - Admin Interface
+# API Routes - Admin Interface (now protected)
 @app.route('/api/admin/candidates')
-@require_login
+@require_admin
 def api_admin_candidates():
     """Get all candidates"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_candidates_list', 'Accessed candidates list')
     return jsonify(get_all_candidates())
 
 
 @app.route('/api/admin/candidate/<username>/detail')
-@require_login
+@require_admin
 def api_admin_candidate_detail(username):
     """Get detailed candidate data"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_candidate_data', f'Accessed data for candidate: {username}')
+    
     candidate_data = get_candidate_detail(username)
     if candidate_data:
         return jsonify(candidate_data)
@@ -423,16 +554,21 @@ def api_admin_candidate_detail(username):
 
 
 @app.route('/api/admin/analytics')
-@require_login
+@require_admin
 def api_admin_analytics():
     """Get system analytics"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_analytics', 'Accessed system analytics')
     return jsonify(get_system_analytics())
 
 
 @app.route('/api/admin/export/candidate/<username>')
-@require_login
+@require_admin
 def api_admin_export_candidate(username):
     """Export candidate report"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'export_candidate_report', f'Exported report for candidate: {username}')
+    
     report = export_candidate_report(username)
     if report:
         return jsonify(report)
@@ -459,6 +595,107 @@ def health():
     
     status_code = 200 if health_status['status'] == 'healthy' else 503
     return jsonify(health_status), status_code
+
+
+# Table Management API Routes (Admin Only)
+@app.route('/api/admin/tables', methods=['GET'])
+@require_admin
+def api_admin_tables():
+    """Get list of all tables with metadata"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_tables_list', 'Accessed tables list')
+    
+    try:
+        table_names = get_table_names()
+        tables_info = []
+        
+        for table_name in table_names:
+            info = get_table_info(table_name)
+            if info['success']:
+                tables_info.append({
+                    'name': table_name,
+                    'columns': len(info['columns']),
+                    'row_count': info['row_count'],
+                    'is_system': table_name in ['users', 'user_sessions', 'query_logs', 'user_challenge_progress', 'challenges']
+                })
+        
+        return jsonify({
+            'success': True,
+            'tables': tables_info
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/admin/table/<table_name>/info', methods=['GET'])
+@require_admin
+def api_admin_table_info(table_name):
+    """Get detailed table information"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_table_info', f'Viewed info for table: {table_name}')
+    
+    result = get_table_info(table_name)
+    if result['success']:
+        return jsonify(result)
+    else:
+        return jsonify(result), 404
+
+
+@app.route('/api/admin/table/<table_name>/delete', methods=['DELETE'])
+@require_admin
+def api_admin_delete_table(table_name):
+    """Delete a table"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'delete_table', f'Attempted to delete table: {table_name}')
+    
+    result = delete_table(table_name)
+    if result['success']:
+        log_admin_action(admin_user.get('id'), 'delete_table_success', f'Successfully deleted table: {table_name}')
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
+
+
+@app.route('/api/admin/table/<table_name>/rename', methods=['POST'])
+@require_admin
+def api_admin_rename_table(table_name):
+    """Rename a table"""
+    data = request.get_json()
+    new_name = data.get('new_name', '').strip()
+    
+    if not new_name:
+        return jsonify({'success': False, 'error': 'New table name is required'}), 400
+    
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'rename_table', f'Attempted to rename table {table_name} to {new_name}')
+    
+    result = rename_table(table_name, new_name)
+    if result['success']:
+        log_admin_action(admin_user.get('id'), 'rename_table_success', f'Successfully renamed table {table_name} to {new_name}')
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
+
+
+@app.route('/api/admin/table/<table_name>/column/<column_name>/modify', methods=['POST'])
+@require_admin
+def api_admin_modify_column(table_name, column_name):
+    """Modify a column's data type"""
+    data = request.get_json()
+    new_type = data.get('new_type', '').strip().upper()
+    
+    if not new_type:
+        return jsonify({'success': False, 'error': 'New data type is required'}), 400
+    
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'modify_column_type', f'Attempted to change {table_name}.{column_name} to {new_type}')
+    
+    result = modify_column_type(table_name, column_name, new_type)
+    if result['success']:
+        log_admin_action(admin_user.get('id'), 'modify_column_success', f'Successfully changed {table_name}.{column_name} to {new_type}')
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
 
 
 # Error handlers

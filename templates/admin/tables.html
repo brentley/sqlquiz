@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+
+{% block title %}Table Management - Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <!-- Hero Section -->
+        <div class="text-center mb-4">
+            <h1 class="display-5 mb-3">
+                <i class="fas fa-table text-primary me-3"></i>Table Management
+            </h1>
+            {% if session.admin_user %}
+            <div class="alert alert-success d-inline-block">
+                <i class="fas fa-shield-alt me-2"></i>
+                <strong>Admin Access:</strong> {{ session.admin_user.email }}
+            </div>
+            {% endif %}
+            <p class="lead text-muted">
+                Manage database tables, modify structure, and control data organization.
+            </p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row mb-4">
+            <div class="col-md-12 text-end">
+                <button class="btn btn-primary" onclick="refreshTables()">
+                    <i class="fas fa-sync-alt me-2"></i>Refresh Tables
+                </button>
+            </div>
+        </div>
+
+        <!-- Tables List -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-database me-2"></i>Database Tables
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="tablesContainer">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading tables...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Table Details Modal -->
+<div class="modal fade" id="tableDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>Table Details: <span id="modalTableName"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="tableDetailsContent">
+                    <!-- Table details will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rename Table Modal -->
+<div class="modal fade" id="renameTableModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>Rename Table
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="renameTableForm">
+                    <div class="mb-3">
+                        <label for="currentTableName" class="form-label">Current Name</label>
+                        <input type="text" class="form-control" id="currentTableName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newTableName" class="form-label">New Name</label>
+                        <input type="text" class="form-control" id="newTableName" required 
+                               pattern="^[a-zA-Z][a-zA-Z0-9_]*$" 
+                               placeholder="e.g., customer_orders">
+                        <div class="form-text">Must start with a letter and contain only letters, numbers, and underscores.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="confirmRenameTable()">
+                    <i class="fas fa-edit me-2"></i>Rename Table
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modify Column Modal -->
+<div class="modal fade" id="modifyColumnModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-cogs me-2"></i>Modify Column
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="modifyColumnForm">
+                    <div class="mb-3">
+                        <label for="columnTableName" class="form-label">Table</label>
+                        <input type="text" class="form-control" id="columnTableName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="columnName" class="form-label">Column</label>
+                        <input type="text" class="form-control" id="columnName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="currentDataType" class="form-label">Current Data Type</label>
+                        <input type="text" class="form-control" id="currentDataType" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newDataType" class="form-label">New Data Type</label>
+                        <select class="form-select" id="newDataType" required>
+                            <option value="">Select data type...</option>
+                            <option value="TEXT">TEXT</option>
+                            <option value="INTEGER">INTEGER</option>
+                            <option value="REAL">REAL</option>
+                            <option value="NUMERIC">NUMERIC</option>
+                            <option value="BLOB">BLOB</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>Warning:</strong> Changing data types may cause data loss or conversion errors.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="confirmModifyColumn()">
+                    <i class="fas fa-cogs me-2"></i>Modify Column
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Confirm Deletion
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>This action cannot be undone!</strong>
+                </div>
+                <p>Are you sure you want to delete the table <strong id="deleteTableName"></strong>?</p>
+                <p class="text-muted">All data in this table will be permanently lost.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDeleteTable()">
+                    <i class="fas fa-trash-alt me-2"></i>Delete Table
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Global variables
+let currentTableForAction = '';
+
+// Load tables when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadTables();
+});
+
+function loadTables() {
+    fetch('/api/admin/tables')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayTables(data.tables);
+            } else {
+                document.getElementById('tablesContainer').innerHTML = 
+                    `<div class="alert alert-danger">Error loading tables: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading tables:', error);
+            document.getElementById('tablesContainer').innerHTML = 
+                '<div class="alert alert-danger">Error loading tables</div>';
+        });
+}
+
+function displayTables(tables) {
+    const container = document.getElementById('tablesContainer');
+    
+    if (tables.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No tables found</p>';
+        return;
+    }
+    
+    let html = '<div class="table-responsive">';
+    html += '<table class="table table-hover">';
+    html += '<thead><tr><th>Table Name</th><th>Columns</th><th>Rows</th><th>Type</th><th>Actions</th></tr></thead><tbody>';
+    
+    tables.forEach(table => {
+        const typeClass = table.is_system ? 'badge bg-warning' : 'badge bg-primary';
+        const typeText = table.is_system ? 'System' : 'User';
+        
+        html += `
+            <tr>
+                <td>
+                    <code class="text-primary">${table.name}</code>
+                    ${table.is_system ? '<i class="fas fa-lock text-warning ms-2" title="System table - protected"></i>' : ''}
+                </td>
+                <td>${table.columns}</td>
+                <td>${table.row_count.toLocaleString()}</td>
+                <td><span class="${typeClass}">${typeText}</span></td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-info" onclick="showTableDetails('${table.name}')" title="View Details">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
+                        ${!table.is_system ? `
+                            <button class="btn btn-outline-secondary" onclick="showRenameModal('${table.name}')" title="Rename Table">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-danger" onclick="showDeleteModal('${table.name}')" title="Delete Table">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function showTableDetails(tableName) {
+    currentTableForAction = tableName;
+    document.getElementById('modalTableName').textContent = tableName;
+    
+    const modal = new bootstrap.Modal(document.getElementById('tableDetailsModal'));
+    modal.show();
+    
+    // Load table details
+    document.getElementById('tableDetailsContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading table details...</p>
+        </div>
+    `;
+    
+    fetch(`/api/admin/table/${tableName}/info`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayTableDetails(data);
+            } else {
+                document.getElementById('tableDetailsContent').innerHTML = 
+                    `<div class="alert alert-danger">Error: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('tableDetailsContent').innerHTML = 
+                `<div class="alert alert-danger">Error loading table details</div>`;
+        });
+}
+
+function displayTableDetails(data) {
+    const container = document.getElementById('tableDetailsContent');
+    const isSystem = ['users', 'user_sessions', 'query_logs', 'user_challenge_progress', 'challenges'].includes(data.table_name);
+    
+    let html = `
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <strong>Table Name:</strong> <code>${data.table_name}</code>
+            </div>
+            <div class="col-md-4">
+                <strong>Columns:</strong> ${data.columns.length}
+            </div>
+            <div class="col-md-4">
+                <strong>Total Rows:</strong> ${data.row_count.toLocaleString()}
+            </div>
+        </div>
+        
+        <h6>Column Details:</h6>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped">
+                <thead>
+                    <tr>
+                        <th>Column</th>
+                        <th>Data Type</th>
+                        <th>Not Null</th>
+                        <th>Default</th>
+                        <th>Primary Key</th>
+                        ${!isSystem ? '<th>Actions</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    data.columns.forEach(col => {
+        html += `
+            <tr>
+                <td><code>${col.name}</code></td>
+                <td><span class="badge bg-secondary">${col.type}</span></td>
+                <td>${col.notnull ? '<i class="fas fa-check text-success"></i>' : '<i class="fas fa-times text-muted"></i>'}</td>
+                <td>${col.dflt_value || '<span class="text-muted">NULL</span>'}</td>
+                <td>${col.pk ? '<i class="fas fa-key text-warning"></i>' : '<span class="text-muted">-</span>'}</td>
+                ${!isSystem && !col.pk ? `
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" 
+                                onclick="showModifyColumnModal('${data.table_name}', '${col.name}', '${col.type}')"
+                                title="Modify Data Type">
+                            <i class="fas fa-cogs"></i>
+                        </button>
+                    </td>
+                ` : (!isSystem ? '<td><span class="text-muted">Protected</span></td>' : '')}
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function showRenameModal(tableName) {
+    currentTableForAction = tableName;
+    document.getElementById('currentTableName').value = tableName;
+    document.getElementById('newTableName').value = '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('renameTableModal'));
+    modal.show();
+}
+
+function showModifyColumnModal(tableName, columnName, currentType) {
+    currentTableForAction = tableName;
+    document.getElementById('columnTableName').value = tableName;
+    document.getElementById('columnName').value = columnName;
+    document.getElementById('currentDataType').value = currentType;
+    document.getElementById('newDataType').value = '';
+    
+    const modal = new bootstrap.Modal(document.getElementById('modifyColumnModal'));
+    modal.show();
+}
+
+function showDeleteModal(tableName) {
+    currentTableForAction = tableName;
+    document.getElementById('deleteTableName').textContent = tableName;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    modal.show();
+}
+
+function confirmRenameTable() {
+    const newName = document.getElementById('newTableName').value.trim();
+    if (!newName) {
+        alert('Please enter a new table name');
+        return;
+    }
+    
+    if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(newName)) {
+        alert('Table name must start with a letter and contain only letters, numbers, and underscores');
+        return;
+    }
+    
+    fetch(`/api/admin/table/${currentTableForAction}/rename`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ new_name: newName })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            refreshTables();
+            bootstrap.Modal.getInstance(document.getElementById('renameTableModal')).hide();
+        } else {
+            showAlert('danger', data.error);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Error renaming table');
+    });
+}
+
+function confirmModifyColumn() {
+    const newType = document.getElementById('newDataType').value;
+    if (!newType) {
+        alert('Please select a new data type');
+        return;
+    }
+    
+    const tableName = document.getElementById('columnTableName').value;
+    const columnName = document.getElementById('columnName').value;
+    
+    if (!confirm(`Are you sure you want to change the data type? This may cause data loss or conversion errors.`)) {
+        return;
+    }
+    
+    fetch(`/api/admin/table/${tableName}/column/${columnName}/modify`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ new_type: newType })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            refreshTables();
+            bootstrap.Modal.getInstance(document.getElementById('modifyColumnModal')).hide();
+            // Close table details modal and reopen it to show updated info
+            bootstrap.Modal.getInstance(document.getElementById('tableDetailsModal')).hide();
+        } else {
+            showAlert('danger', data.error);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Error modifying column');
+    });
+}
+
+function confirmDeleteTable() {
+    fetch(`/api/admin/table/${currentTableForAction}/delete`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', data.message);
+            refreshTables();
+            bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal')).hide();
+        } else {
+            showAlert('danger', data.error);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Error deleting table');
+    });
+}
+
+function refreshTables() {
+    document.getElementById('tablesContainer').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Refreshing tables...</p>
+        </div>
+    `;
+    loadTables();
+}
+
+function showAlert(type, message) {
+    // Create and show bootstrap alert
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insert at top of content
+    const content = document.querySelector('.container');
+    content.insertBefore(alertDiv, content.firstChild);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

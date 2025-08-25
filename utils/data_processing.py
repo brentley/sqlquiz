@@ -8,6 +8,7 @@ import io
 import tempfile
 import zipfile
 import os
+import time
 import re
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -412,6 +413,179 @@ def get_sample_data(table_name, limit=5):
         
         # Convert to list of dictionaries
         return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def delete_table(table_name):
+    """Delete a table from the database"""
+    conn = get_db_connection()
+    try:
+        # Validate table exists
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)).fetchone()
+        if not tables:
+            return {'success': False, 'error': f'Table "{table_name}" does not exist'}
+        
+        # Prevent deletion of system tables
+        system_tables = ['users', 'user_sessions', 'query_logs', 'user_challenge_progress', 'challenges']
+        if table_name in system_tables:
+            return {'success': False, 'error': f'Cannot delete system table "{table_name}"'}
+        
+        # Delete the table
+        conn.execute(f'DROP TABLE IF EXISTS `{table_name}`')
+        conn.commit()
+        
+        return {'success': True, 'message': f'Table "{table_name}" deleted successfully'}
+    except Exception as e:
+        return {'success': False, 'error': f'Error deleting table: {str(e)}'}
+    finally:
+        conn.close()
+
+
+def rename_table(old_name, new_name):
+    """Rename a table"""
+    conn = get_db_connection()
+    try:
+        # Validate old table exists
+        old_table = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (old_name,)).fetchone()
+        if not old_table:
+            return {'success': False, 'error': f'Table "{old_name}" does not exist'}
+        
+        # Validate new name doesn't exist
+        new_table = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (new_name,)).fetchone()
+        if new_table:
+            return {'success': False, 'error': f'Table "{new_name}" already exists'}
+        
+        # Prevent renaming system tables
+        system_tables = ['users', 'user_sessions', 'query_logs', 'user_challenge_progress', 'challenges']
+        if old_name in system_tables:
+            return {'success': False, 'error': f'Cannot rename system table "{old_name}"'}
+        
+        # Validate new name format (alphanumeric and underscores only)
+        import re
+        if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', new_name):
+            return {'success': False, 'error': 'Table name must start with a letter and contain only letters, numbers, and underscores'}
+        
+        # Rename the table
+        conn.execute(f'ALTER TABLE `{old_name}` RENAME TO `{new_name}`')
+        conn.commit()
+        
+        return {'success': True, 'message': f'Table renamed from "{old_name}" to "{new_name}"'}
+    except Exception as e:
+        return {'success': False, 'error': f'Error renaming table: {str(e)}'}
+    finally:
+        conn.close()
+
+
+def modify_column_type(table_name, column_name, new_type):
+    """Modify a column's data type (SQLite limitation workaround)"""
+    conn = get_db_connection()
+    try:
+        # Validate table exists
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)).fetchone()
+        if not tables:
+            return {'success': False, 'error': f'Table "{table_name}" does not exist'}
+        
+        # Prevent modification of system tables
+        system_tables = ['users', 'user_sessions', 'query_logs', 'user_challenge_progress', 'challenges']
+        if table_name in system_tables:
+            return {'success': False, 'error': f'Cannot modify system table "{table_name}"'}
+        
+        # Get current table schema
+        columns = conn.execute(f"PRAGMA table_info(`{table_name}`)").fetchall()
+        column_exists = False
+        table_columns = []
+        
+        for col in columns:
+            if col['name'] == column_name:
+                column_exists = True
+                # Update the column type
+                table_columns.append({
+                    'name': col['name'],
+                    'type': new_type,
+                    'notnull': col['notnull'],
+                    'default_value': col['dflt_value'],
+                    'pk': col['pk']
+                })
+            else:
+                table_columns.append({
+                    'name': col['name'],
+                    'type': col['type'],
+                    'notnull': col['notnull'],
+                    'default_value': col['dflt_value'],
+                    'pk': col['pk']
+                })
+        
+        if not column_exists:
+            return {'success': False, 'error': f'Column "{column_name}" does not exist in table "{table_name}"'}
+        
+        # Validate new type
+        valid_types = ['TEXT', 'INTEGER', 'REAL', 'BLOB', 'NUMERIC']
+        if new_type.upper() not in valid_types:
+            return {'success': False, 'error': f'Invalid data type "{new_type}". Valid types: {", ".join(valid_types)}'}
+        
+        # SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+        temp_table_name = f"{table_name}_temp_{int(time.time())}"
+        
+        # Create new table with updated column type
+        column_definitions = []
+        for col in table_columns:
+            col_def = f"`{col['name']}` {col['type']}"
+            if col['pk']:
+                col_def += " PRIMARY KEY"
+            elif col['notnull']:
+                col_def += " NOT NULL"
+            if col['default_value'] is not None:
+                col_def += f" DEFAULT {col['default_value']}"
+            column_definitions.append(col_def)
+        
+        create_sql = f"CREATE TABLE `{temp_table_name}` ({', '.join(column_definitions)})"
+        conn.execute(create_sql)
+        
+        # Copy data from old table to new table
+        column_names = [f"`{col['name']}`" for col in table_columns]
+        copy_sql = f"INSERT INTO `{temp_table_name}` SELECT {', '.join(column_names)} FROM `{table_name}`"
+        conn.execute(copy_sql)
+        
+        # Drop old table
+        conn.execute(f"DROP TABLE `{table_name}`")
+        
+        # Rename temp table to original name
+        conn.execute(f"ALTER TABLE `{temp_table_name}` RENAME TO `{table_name}`")
+        
+        conn.commit()
+        
+        return {'success': True, 'message': f'Column "{column_name}" type changed to "{new_type}" in table "{table_name}"'}
+    except Exception as e:
+        conn.rollback()
+        return {'success': False, 'error': f'Error modifying column: {str(e)}'}
+    finally:
+        conn.close()
+
+
+def get_table_info(table_name):
+    """Get detailed information about a table"""
+    conn = get_db_connection()
+    try:
+        # Validate table exists
+        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,)).fetchone()
+        if not tables:
+            return {'success': False, 'error': f'Table "{table_name}" does not exist'}
+        
+        # Get table schema
+        columns = conn.execute(f"PRAGMA table_info(`{table_name}`)").fetchall()
+        
+        # Get row count
+        row_count = conn.execute(f"SELECT COUNT(*) as count FROM `{table_name}`").fetchone()['count']
+        
+        return {
+            'success': True,
+            'table_name': table_name,
+            'columns': [dict(col) for col in columns],
+            'row_count': row_count
+        }
+    except Exception as e:
+        return {'success': False, 'error': f'Error getting table info: {str(e)}'}
     finally:
         conn.close()
 

@@ -177,6 +177,7 @@ def create_user_tables(conn):
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT,
             email TEXT,
+            is_admin BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_login TIMESTAMP,
             is_active BOOLEAN DEFAULT 1
@@ -193,6 +194,7 @@ def create_user_tables(conn):
             last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             ip_address TEXT,
             user_agent TEXT,
+            is_admin BOOLEAN DEFAULT 0,
             is_active BOOLEAN DEFAULT 1,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
@@ -269,6 +271,20 @@ def create_user_tables(conn):
             UNIQUE(user_id, challenge_id)
         )
     ''')
+    
+    # Create admin audit log table
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS admin_audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action TEXT NOT NULL,
+            details TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
 
 
 def verify_user_database_schema(conn):
@@ -281,7 +297,7 @@ def verify_user_database_schema(conn):
         users_columns = [col['name'] for col in users_info]
         print(f"Users table columns: {users_columns}")
         
-        required_users_columns = ['id', 'username', 'password_hash', 'email', 'created_at', 'last_login', 'is_active']
+        required_users_columns = ['id', 'username', 'password_hash', 'email', 'is_admin', 'created_at', 'last_login', 'is_active']
         missing_columns = [col for col in required_users_columns if col not in users_columns]
         
         if missing_columns:
@@ -298,6 +314,8 @@ def verify_user_database_schema(conn):
                     conn.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
                 elif column == 'is_active':
                     conn.execute("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT 1")
+                elif column == 'is_admin':
+                    conn.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
                 print(f"Added missing column: {column}")
         else:
             print("Users table schema is complete")
@@ -337,7 +355,7 @@ def verify_user_database_schema(conn):
             print("Recreated user_sessions table with correct schema")
         else:
             # Check for missing columns in existing table
-            required_sessions_columns = ['id', 'user_id', 'session_token', 'login_time', 'last_activity', 'ip_address', 'user_agent', 'is_active']
+            required_sessions_columns = ['id', 'user_id', 'session_token', 'login_time', 'last_activity', 'ip_address', 'user_agent', 'is_admin', 'is_active']
             missing_columns = [col for col in required_sessions_columns if col not in sessions_columns]
             
             if missing_columns:
@@ -356,6 +374,8 @@ def verify_user_database_schema(conn):
                         conn.execute("ALTER TABLE user_sessions ADD COLUMN user_agent TEXT")
                     elif column == 'is_active':
                         conn.execute("ALTER TABLE user_sessions ADD COLUMN is_active BOOLEAN DEFAULT 1")
+                    elif column == 'is_admin':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN is_admin BOOLEAN DEFAULT 0")
                     print(f"Added missing column: {column}")
             else:
                 print("User_sessions table schema is complete")
@@ -430,7 +450,7 @@ def verify_user_database_schema(conn):
     tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
     table_names = [table['name'] for table in tables]
     
-    required_tables = ['users', 'user_sessions', 'query_logs', 'challenges', 'challenge_attempts', 'user_challenge_progress']
+    required_tables = ['users', 'user_sessions', 'query_logs', 'challenges', 'challenge_attempts', 'user_challenge_progress', 'admin_audit_log']
     missing_tables = [table for table in required_tables if table not in table_names]
     
     if missing_tables:

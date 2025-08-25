@@ -202,6 +202,57 @@ def admin_login():
     return render_template('admin/login.html')
 
 
+@app.route('/admin/simple-login', methods=['POST'])
+def admin_simple_login():
+    """Simple email-based admin login (temporary)"""
+    data = request.get_json()
+    email = data.get('email', '').strip().lower()
+    
+    if not email:
+        return jsonify({'success': False, 'error': 'Email is required'}), 400
+    
+    # Check if email is in the allowed list
+    allowed_admins = ['brent.langston@visiquate.com', 'peyton.meroney@visiquate.com']
+    if email not in allowed_admins:
+        log_admin_action(None, 'unauthorized_simple_login_attempt', f'Email: {email}')
+        return jsonify({'success': False, 'error': 'Access denied. You are not authorized as an admin.'}), 403
+    
+    try:
+        # Extract name from email
+        name = email.split('@')[0].replace('.', ' ').title()
+        
+        # Create or get admin user
+        user_id = create_admin_user(email, name)
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Failed to create admin user session'}), 500
+        
+        # Create admin session
+        session_token = create_admin_session(user_id, email, name)
+        if not session_token:
+            return jsonify({'success': False, 'error': 'Failed to create admin session'}), 500
+        
+        # Store in session
+        session['admin_session_token'] = session_token
+        session['admin_user'] = {
+            'id': user_id,
+            'email': email,
+            'name': name
+        }
+        
+        # Log successful login
+        log_admin_action(user_id, 'admin_simple_login', f'Simple login successful for {email}')
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Admin login successful',
+            'redirect': url_for('admin_dashboard')
+        })
+        
+    except Exception as e:
+        print(f"Simple login error: {e}")
+        return jsonify({'success': False, 'error': 'Authentication failed. Please try again.'}), 500
+
+
 @app.route('/admin/auth')
 def admin_auth():
     """Initiate OAuth authentication for admin"""

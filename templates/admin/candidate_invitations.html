@@ -233,7 +233,7 @@ function displayInvitations(invitations) {
                 <td><span class="badge bg-${statusClass}">${statusText}</span></td>
                 <td>
                     <div class="btn-group btn-group-sm" role="group">
-                        <button class="btn btn-outline-info" onclick="viewInvitationUrl('${invitation.invitation_token}')" title="View URL">
+                        <button class="btn btn-outline-info" onclick="viewInvitationUrl('${invitation.invitation_token}', '${invitation.candidate_name}', '${invitation.email}')" title="View URL">
                             <i class="fas fa-link"></i>
                         </button>
                         <button class="btn btn-outline-primary" onclick="showActivity(${invitation.id}, '${invitation.candidate_name}')" title="View Activity">
@@ -333,11 +333,15 @@ function copyInvitationUrl() {
     }
 }
 
-function viewInvitationUrl(token) {
+function viewInvitationUrl(token, candidateName, email) {
     const baseUrl = window.location.origin;
     const fullUrl = `${baseUrl}/candidate/${token}`;
     
+    // Update modal with correct candidate information
+    document.getElementById('invitationCandidateName').textContent = candidateName;
+    document.getElementById('invitationEmail').textContent = email;
     document.getElementById('invitationUrl').value = fullUrl;
+    
     const modal = new bootstrap.Modal(document.getElementById('invitationUrlModal'));
     modal.show();
 }

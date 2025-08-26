@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invalid Invitation - Data Explorer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}?v={{ git_commit }}" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #dc3545, #fd7e14);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .error-card {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            padding: 3rem;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .error-icon {
+            font-size: 4rem;
+            color: #dc3545;
+            margin-bottom: 1.5rem;
+        }
+        
+        .error-title {
+            color: var(--text-primary);
+            font-size: 2.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        .error-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        
+        .possible-reasons {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+        
+        .possible-reasons h5 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .possible-reasons ul {
+            margin-bottom: 0;
+            padding-left: 1.5rem;
+        }
+        
+        .possible-reasons li {
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .next-steps {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .next-steps h6 {
+            color: #0c5460;
+            margin-bottom: 0.5rem;
+        }
+        
+        .next-steps p {
+            color: #0c5460;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        
+        .brand-footer {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-card">
+        <i class="fas fa-exclamation-triangle error-icon"></i>
+        <h1 class="error-title">Invalid or Expired Invitation</h1>
+        <p class="error-subtitle">
+            The invitation link you used is not valid or has expired.
+        </p>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-4">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <div class="possible-reasons">
+            <h5>
+                <i class="fas fa-search text-warning"></i>
+                Possible Reasons
+            </h5>
+            <ul>
+                <li>The invitation link has expired (invitations are typically valid for 30 days)</li>
+                <li>The link may have been copied incorrectly or is incomplete</li>
+                <li>The invitation may have already been used and deactivated</li>
+                <li>The invitation may have been revoked by the administrator</li>
+            </ul>
+        </div>
+        
+        <div class="next-steps">
+            <h6>
+                <i class="fas fa-lightbulb me-2"></i>
+                What to Do Next
+            </h6>
+            <p>
+                Please contact the person who sent you the assessment invitation and request a new link.
+                They will be able to generate a fresh invitation for you to access the assessment.
+            </p>
+        </div>
+        
+        <div class="brand-footer">
+            <i class="fas fa-database me-2"></i>
+            VisiQuate Data Explorer Assessment Platform
+            <br>
+            <small class="text-muted">
+                Secure candidate evaluation system
+            </small>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

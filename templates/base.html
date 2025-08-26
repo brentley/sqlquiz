@@ -50,11 +50,13 @@
                         </a>
                     </li>
                     {% endif %}
+                    {% if session.admin_user %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('challenges') }}">
                             <i class="fas fa-trophy me-1"></i>Challenges
                         </a>
                     </li>
+                    {% endif %}
                     {% if session.admin_user %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
@@ -101,7 +103,7 @@
                                 <i class="fas fa-sign-out-alt me-2"></i>Admin Logout
                             </a></li>
                             {% endif %}
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                            <li><a class="dropdown-item" href="{{ url_for('candidate_logout') }}">
                                 <i class="fas fa-sign-out-alt me-2"></i>Logout
                             </a></li>
                         </ul>

@@ -1,0 +1,434 @@
+{% extends "base.html" %}
+
+{% block title %}Candidate Invitations - Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12">
+        <!-- Hero Section -->
+        <div class="text-center mb-4">
+            <h1 class="display-5 mb-3">
+                <i class="fas fa-user-plus text-primary me-3"></i>Candidate Invitations
+            </h1>
+            {% if session.admin_user %}
+            <div class="alert alert-success d-inline-block">
+                <i class="fas fa-shield-alt me-2"></i>
+                <strong>Admin Access:</strong> {{ session.admin_user.email }}
+            </div>
+            {% endif %}
+            <p class="lead text-muted">
+                Generate secure invitation links for candidate assessments and track their usage.
+            </p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <button class="btn btn-primary btn-lg" onclick="showCreateInvitationModal()">
+                    <i class="fas fa-plus-circle me-2"></i>Create New Invitation
+                </button>
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-outline-secondary" onclick="refreshInvitations()">
+                    <i class="fas fa-sync-alt me-2"></i>Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Invitations List -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0">
+                    <i class="fas fa-envelope me-2"></i>Active Invitations
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="invitationsContainer">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading invitations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Invitation Modal -->
+<div class="modal fade" id="createInvitationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-plus me-2"></i>Create Candidate Invitation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createInvitationForm">
+                    <div class="mb-3">
+                        <label for="candidateName" class="form-label">Candidate Name</label>
+                        <input type="text" class="form-control" id="candidateName" required 
+                               placeholder="e.g., John Smith">
+                        <div class="form-text">Full name of the candidate</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="candidateEmail" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="candidateEmail" required 
+                               placeholder="e.g., john.smith@company.com">
+                        <div class="form-text">Where the invitation link will be sent</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="expiresDays" class="form-label">Expires In (Days)</label>
+                        <select class="form-select" id="expiresDays">
+                            <option value="7">7 days</option>
+                            <option value="14">14 days</option>
+                            <option value="30" selected>30 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90">90 days</option>
+                            <option value="">Never expires</option>
+                        </select>
+                        <div class="form-text">How long the invitation link remains valid</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createInvitation()">
+                    <i class="fas fa-paper-plane me-2"></i>Create Invitation
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Invitation URL Modal -->
+<div class="modal fade" id="invitationUrlModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>Invitation Created Successfully
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-info-circle me-2"></i>Invitation Details</h6>
+                    <p class="mb-1"><strong>Candidate:</strong> <span id="invitationCandidateName"></span></p>
+                    <p class="mb-0"><strong>Email:</strong> <span id="invitationEmail"></span></p>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label"><strong>Unique Invitation URL:</strong></label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="invitationUrl" readonly>
+                        <button class="btn btn-outline-secondary" onclick="copyInvitationUrl()" id="copyBtn">
+                            <i class="fas fa-copy me-1"></i>Copy
+                        </button>
+                    </div>
+                    <div class="form-text">Share this URL with the candidate to access their assessment</div>
+                </div>
+                
+                <div class="alert alert-warning">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Important</h6>
+                    <ul class="mb-0">
+                        <li>This URL is unique to this candidate and should not be shared with others</li>
+                        <li>The candidate can use this URL multiple times during the validity period</li>
+                        <li>All candidate activity will be tracked and logged</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="copyInvitationUrl()">
+                    <i class="fas fa-copy me-2"></i>Copy URL
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activity Modal -->
+<div class="modal fade" id="activityModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-chart-line me-2"></i>Candidate Activity: <span id="activityCandidateName"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="activityContent">
+                    <!-- Activity content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load invitations when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadInvitations();
+});
+
+function loadInvitations() {
+    fetch('/api/admin/candidates/invitations')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayInvitations(data.invitations);
+            } else {
+                document.getElementById('invitationsContainer').innerHTML = 
+                    `<div class="alert alert-danger">Error loading invitations: ${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading invitations:', error);
+            document.getElementById('invitationsContainer').innerHTML = 
+                '<div class="alert alert-danger">Error loading invitations</div>';
+        });
+}
+
+function displayInvitations(invitations) {
+    const container = document.getElementById('invitationsContainer');
+    
+    if (invitations.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No Invitations Created</h5>
+                <p class="text-muted">Create your first candidate invitation to get started.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="table-responsive">';
+    html += '<table class="table table-hover">';
+    html += '<thead><tr><th>Candidate</th><th>Email</th><th>Created</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
+    
+    invitations.forEach(invitation => {
+        const createdAt = new Date(invitation.created_at).toLocaleDateString();
+        const expiresAt = invitation.expires_at ? new Date(invitation.expires_at).toLocaleDateString() : 'Never';
+        const isExpired = invitation.expires_at && new Date(invitation.expires_at) < new Date();
+        const statusClass = invitation.is_used ? 'success' : (isExpired ? 'danger' : (invitation.is_active ? 'primary' : 'secondary'));
+        const statusText = invitation.is_used ? 'Used' : (isExpired ? 'Expired' : (invitation.is_active ? 'Active' : 'Inactive'));
+        
+        html += `
+            <tr>
+                <td>
+                    <strong>${invitation.candidate_name}</strong>
+                    <br><small class="text-muted">Created by: ${invitation.created_by_name}</small>
+                </td>
+                <td>${invitation.email}</td>
+                <td><small>${createdAt}</small></td>
+                <td><small>${expiresAt}</small></td>
+                <td><span class="badge bg-${statusClass}">${statusText}</span></td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-outline-info" onclick="viewInvitationUrl('${invitation.invitation_token}')" title="View URL">
+                            <i class="fas fa-link"></i>
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="showActivity(${invitation.id}, '${invitation.candidate_name}')" title="View Activity">
+                            <i class="fas fa-chart-line"></i>
+                        </button>
+                        ${invitation.is_active ? `
+                            <button class="btn btn-outline-danger" onclick="deactivateInvitation(${invitation.id})" title="Deactivate">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function showCreateInvitationModal() {
+    // Reset form
+    document.getElementById('createInvitationForm').reset();
+    
+    const modal = new bootstrap.Modal(document.getElementById('createInvitationModal'));
+    modal.show();
+}
+
+function createInvitation() {
+    const candidateName = document.getElementById('candidateName').value.trim();
+    const candidateEmail = document.getElementById('candidateEmail').value.trim();
+    const expiresDays = document.getElementById('expiresDays').value;
+    
+    if (!candidateName || !candidateEmail) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    const data = {
+        candidate_name: candidateName,
+        email: candidateEmail,
+        expires_days: expiresDays ? parseInt(expiresDays) : null
+    };
+    
+    fetch('/api/admin/candidates/invitations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Hide create modal
+            bootstrap.Modal.getInstance(document.getElementById('createInvitationModal')).hide();
+            
+            // Show success modal with URL
+            document.getElementById('invitationCandidateName').textContent = candidateName;
+            document.getElementById('invitationEmail').textContent = candidateEmail;
+            document.getElementById('invitationUrl').value = data.full_url;
+            
+            const urlModal = new bootstrap.Modal(document.getElementById('invitationUrlModal'));
+            urlModal.show();
+            
+            // Refresh invitations list
+            loadInvitations();
+            
+            showAlert('success', 'Invitation created successfully!');
+        } else {
+            showAlert('danger', data.error);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Error creating invitation');
+    });
+}
+
+function copyInvitationUrl() {
+    const urlInput = document.getElementById('invitationUrl');
+    urlInput.select();
+    urlInput.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+        document.execCommand('copy');
+        showAlert('success', 'Invitation URL copied to clipboard!');
+        
+        // Change button text temporarily
+        const copyBtn = document.getElementById('copyBtn');
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+        setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+        }, 2000);
+    } catch (err) {
+        showAlert('warning', 'Could not copy to clipboard. Please copy manually.');
+    }
+}
+
+function viewInvitationUrl(token) {
+    const baseUrl = window.location.origin;
+    const fullUrl = `${baseUrl}/candidate/${token}`;
+    
+    document.getElementById('invitationUrl').value = fullUrl;
+    const modal = new bootstrap.Modal(document.getElementById('invitationUrlModal'));
+    modal.show();
+}
+
+function deactivateInvitation(invitationId) {
+    if (!confirm('Are you sure you want to deactivate this invitation? The candidate will no longer be able to use this link.')) {
+        return;
+    }
+    
+    fetch(`/api/admin/candidates/invitations/${invitationId}/deactivate`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', 'Invitation deactivated successfully');
+            loadInvitations();
+        } else {
+            showAlert('danger', data.error);
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Error deactivating invitation');
+    });
+}
+
+function showActivity(invitationId, candidateName) {
+    document.getElementById('activityCandidateName').textContent = candidateName;
+    
+    const modal = new bootstrap.Modal(document.getElementById('activityModal'));
+    modal.show();
+    
+    // Load activity data
+    document.getElementById('activityContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading candidate activity...</p>
+        </div>
+    `;
+    
+    // Note: This would need the user_id, not invitation_id
+    // For now, show placeholder
+    setTimeout(() => {
+        document.getElementById('activityContent').innerHTML = `
+            <div class="alert alert-info">
+                <h6>Activity Tracking</h6>
+                <p class="mb-0">Detailed candidate activity tracking will be displayed here, including:</p>
+                <ul class="mb-0">
+                    <li>Query attempts and results</li>
+                    <li>Time spent on assessment</li>
+                    <li>Pages visited and navigation patterns</li>
+                    <li>Challenge completion status</li>
+                </ul>
+            </div>
+        `;
+    }, 1000);
+}
+
+function refreshInvitations() {
+    document.getElementById('invitationsContainer').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Refreshing invitations...</p>
+        </div>
+    `;
+    loadInvitations();
+}
+
+function showAlert(type, message) {
+    // Create and show bootstrap alert
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insert at top of content
+    const content = document.querySelector('.container');
+    content.insertBefore(alertDiv, content.firstChild);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

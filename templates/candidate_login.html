@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Required - Data Explorer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}?v={{ git_commit }}" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, var(--vq-primary), var(--vq-accent));
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .access-card {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            padding: 3rem;
+            width: 100%;
+            max-width: 600px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .access-icon {
+            font-size: 4rem;
+            color: var(--vq-primary);
+            margin-bottom: 1.5rem;
+        }
+        
+        .access-title {
+            color: var(--text-primary);
+            font-size: 2.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        .access-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+        
+        .instructions {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+        
+        .instructions h5 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .instructions ul {
+            margin-bottom: 0;
+            padding-left: 1.5rem;
+        }
+        
+        .instructions li {
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .contact-info {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .contact-info h6 {
+            color: #856404;
+            margin-bottom: 0.5rem;
+        }
+        
+        .contact-info p {
+            color: #856404;
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        
+        .brand-footer {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="access-card">
+        <i class="fas fa-key access-icon"></i>
+        <h1 class="access-title">Access Required</h1>
+        <p class="access-subtitle">
+            This SQL assessment platform requires a unique invitation link to access.
+        </p>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-4">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <div class="instructions">
+            <h5>
+                <i class="fas fa-info-circle text-primary"></i>
+                How to Access
+            </h5>
+            <ul>
+                <li>You should have received a unique invitation link via email</li>
+                <li>The link looks like: <code>https://domain.com/candidate/ABC123...</code></li>
+                <li>Click on that link to access your assessment</li>
+                <li>If you can't find the email, check your spam folder</li>
+            </ul>
+        </div>
+        
+        <div class="contact-info">
+            <h6>
+                <i class="fas fa-envelope me-2"></i>
+                Need Help?
+            </h6>
+            <p>
+                If you haven't received your invitation link or are having trouble accessing the assessment,
+                please contact the person who sent you the invitation or your assessment coordinator.
+            </p>
+        </div>
+        
+        <div class="brand-footer">
+            <i class="fas fa-database me-2"></i>
+            VisiQuate Data Explorer Assessment Platform
+            <br>
+            <small class="text-muted">
+                Secure candidate evaluation system
+            </small>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

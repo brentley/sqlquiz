@@ -30,6 +30,11 @@ from models.admin_auth import (
     init_oauth, require_admin, is_admin_email, create_admin_user, 
     create_admin_session, invalidate_admin_session, log_admin_action
 )
+from models.candidates import (
+    create_candidate_invitation, validate_invitation_token, authenticate_candidate,
+    log_candidate_activity, get_all_candidate_invitations, get_candidate_activity_log,
+    deactivate_invitation, get_candidate_summary
+)
 
 
 # Flask app initialization
@@ -45,20 +50,42 @@ app.start_time = time.time()
 
 # Authentication decorator
 def require_login(f):
-    """Decorator to require user login"""
+    """Decorator to require user login (DEPRECATED - use require_candidate_auth)"""
     def decorated_function(*args, **kwargs):
-        # Check for basic session info (fallback when user database unavailable)
-        if 'username' not in session:
-            return redirect(url_for('login'))
+        # Redirect to candidate login since public access is removed
+        return redirect(url_for('candidate_login_page'))
+    decorated_function.__name__ = f.__name__
+    return decorated_function
+
+
+def require_candidate_auth(f):
+    """Decorator to require candidate authentication via unique URL"""
+    def decorated_function(*args, **kwargs):
+        # Check for candidate session
+        if 'candidate_session_token' not in session or 'candidate_user_id' not in session:
+            return redirect(url_for('candidate_login_page'))
         
-        # Try to validate session if we have a session token
-        if 'session_token' in session:
-            user = get_user_by_session(session['session_token'])
-            if user:
-                # Store user info in session for easy access
-                session['user_id'] = user['id']
-                session['username'] = user['username']
-            # If user database is unavailable, continue with basic session info
+        # Validate session is still active
+        user = get_user_by_session(session['candidate_session_token'])
+        if not user or user['id'] != session['candidate_user_id']:
+            # Invalid session, clear it
+            session.pop('candidate_session_token', None)
+            session.pop('candidate_user_id', None)
+            session.pop('candidate_name', None)
+            session.pop('candidate_email', None)
+            session.pop('invitation_token', None)
+            return redirect(url_for('candidate_login_page'))
+        
+        # Log page access activity
+        log_candidate_activity(
+            user_id=session['candidate_user_id'],
+            invitation_token=session.get('invitation_token'),
+            activity_type='page_access',
+            details=f"Accessed {request.endpoint}",
+            page_url=request.url,
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
         
         return f(*args, **kwargs)
     decorated_function.__name__ = f.__name__
@@ -77,9 +104,69 @@ def inject_version():
     }
 
 
-# Main routes
+# Candidate authentication routes
+@app.route('/candidate/<token>')
+def candidate_login(token):
+    """Candidate login via unique URL token"""
+    validation = validate_invitation_token(token)
+    if not validation['valid']:
+        flash(f"Invalid invitation: {validation['error']}", 'error')
+        return render_template('candidate_invalid.html')
+    
+    # Authenticate candidate
+    auth_result = authenticate_candidate(token)
+    if not auth_result['success']:
+        flash(f"Authentication failed: {auth_result['error']}", 'error')
+        return render_template('candidate_invalid.html')
+    
+    # Set candidate session
+    session['candidate_session_token'] = auth_result['session_token']
+    session['candidate_user_id'] = auth_result['user_id']
+    session['candidate_name'] = auth_result['candidate_name']
+    session['candidate_email'] = auth_result['email']
+    session['invitation_token'] = token
+    session['username'] = auth_result['candidate_name']  # For compatibility
+    session['user_id'] = auth_result['user_id']  # For compatibility
+    session['login_time'] = time.time()
+    
+    flash(f"Welcome {auth_result['candidate_name']}!", 'success')
+    return redirect(url_for('index'))
+
+
+@app.route('/candidate-login')
+def candidate_login_page():
+    """Page shown when no valid invitation token"""
+    return render_template('candidate_login.html')
+
+
+@app.route('/candidate/logout')
+def candidate_logout():
+    """Candidate logout"""
+    if 'candidate_user_id' in session:
+        log_candidate_activity(
+            user_id=session['candidate_user_id'],
+            invitation_token=session.get('invitation_token'),
+            activity_type='candidate_logout',
+            details='Candidate logged out'
+        )
+    
+    # Clear candidate session
+    session.pop('candidate_session_token', None)
+    session.pop('candidate_user_id', None)
+    session.pop('candidate_name', None)
+    session.pop('candidate_email', None)
+    session.pop('invitation_token', None)
+    session.pop('username', None)
+    session.pop('user_id', None)
+    session.pop('login_time', None)
+    
+    flash('You have been logged out', 'info')
+    return redirect(url_for('candidate_login_page'))
+
+
+# Main routes (now require candidate authentication)
 @app.route('/')
-@require_login
+@require_candidate_auth
 def index():
     """Home page"""
     return render_template('index.html')
@@ -87,43 +174,8 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Login page"""
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        
-        if not username:
-            flash('Username is required', 'error')
-            return render_template('login.html')
-        
-        # Authenticate user (create if doesn't exist)
-        user_id = authenticate_user(username)
-        if user_id:
-            # Create session
-            session_token = create_session(
-                user_id, 
-                request.remote_addr, 
-                request.headers.get('User-Agent', '')
-            )
-            
-            if session_token:
-                # Store in session
-                session['session_token'] = session_token
-                session['user_id'] = user_id
-                session['username'] = username
-                session['login_time'] = time.time()
-                
-                return redirect(url_for('index'))
-            else:
-                # Session creation failed, but allow basic access
-                session['user_id'] = user_id
-                session['username'] = username
-                session['login_time'] = time.time()
-                flash('Login successful (limited functionality - user database unavailable)', 'warning')
-                return redirect(url_for('index'))
-        else:
-            flash('Authentication failed', 'error')
-    
-    return render_template('login.html')
+    """Login page (DEPRECATED - redirects to candidate login)"""
+    return redirect(url_for('candidate_login_page'))
 
 
 @app.route('/logout')
@@ -136,7 +188,7 @@ def logout():
 
 
 @app.route('/explore')
-@require_login
+@require_candidate_auth
 def data_explorer():
     """Data explorer interface"""
     return render_template('explore.html')
@@ -189,9 +241,11 @@ def data_upload():
 
 
 @app.route('/challenges')
-@require_login  
+@require_admin
 def challenges():
-    """Challenge mode interface"""
+    """Challenge mode interface (ADMIN ONLY)"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_challenges', 'Accessed challenges interface')
     return render_template('challenges.html')
 
 
@@ -377,6 +431,15 @@ def admin_tables():
     return render_template('admin/tables.html')
 
 
+@app.route('/admin/candidate-invitations')
+@require_admin
+def admin_candidate_invitations():
+    """Candidate invitation management interface"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_candidate_invitations', 'Accessed candidate invitations interface')
+    return render_template('admin/candidate_invitations.html')
+
+
 # Schema reference page
 @app.route('/schema')
 @require_login
@@ -401,9 +464,9 @@ def api_tables():
 
 
 @app.route('/api/execute', methods=['POST'])
-@require_login
+@require_candidate_auth
 def api_execute():
-    """Execute SQL query with pagination support"""
+    """Execute SQL query with pagination support and comprehensive logging"""
     data = request.get_json()
     query = data.get('query', '').strip()
     page = data.get('page', 1)
@@ -426,6 +489,21 @@ def api_execute():
         page_count,  # Log the count of rows returned for this page
         success,
         error_message
+    )
+    
+    # Enhanced candidate activity logging - capture ALL queries including syntax errors
+    log_candidate_activity(
+        user_id=session.get('candidate_user_id'),
+        invitation_token=session.get('invitation_token'),
+        activity_type='query_executed',
+        details=f"Query executed: {'SUCCESS' if success else 'FAILED'} | Rows: {page_count if success else 0} | Page: {page}",
+        query_text=query,
+        execution_time_ms=execution_time_ms,
+        success=success,
+        error_message=error_message,
+        ip_address=request.remote_addr,
+        user_agent=request.headers.get('User-Agent'),
+        page_url=request.url
     )
     
     if success:
@@ -485,16 +563,21 @@ def api_upload():
 
 # API Routes - Challenge System
 @app.route('/api/challenges')
-@require_login
+@require_admin  
 def api_challenges():
-    """Get all challenges"""
+    """Get all challenges (ADMIN ONLY)"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'api_challenges', 'Accessed challenges API')
     return jsonify(get_all_challenges())
 
 
 @app.route('/api/challenge/<int:challenge_id>')
-@require_login
+@require_admin
 def api_challenge_detail(challenge_id):
-    """Get challenge details"""
+    """Get challenge details (ADMIN ONLY)"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'api_challenge_detail', f'Viewed challenge {challenge_id}')
+    
     challenge = get_challenge_by_id(challenge_id, session.get('user_id'))
     if challenge:
         return jsonify(challenge)
@@ -503,7 +586,7 @@ def api_challenge_detail(challenge_id):
 
 
 @app.route('/api/challenge/<int:challenge_id>/attempt', methods=['POST'])
-@require_login
+@require_admin
 def api_challenge_attempt(challenge_id):
     """Submit challenge attempt"""
     data = request.get_json()
@@ -646,6 +729,85 @@ def health():
     
     status_code = 200 if health_status['status'] == 'healthy' else 503
     return jsonify(health_status), status_code
+
+
+# Candidate Management API Routes (Admin Only)
+@app.route('/api/admin/candidates/invitations', methods=['GET'])
+@require_admin
+def api_admin_candidate_invitations():
+    """Get all candidate invitations"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_candidate_invitations', 'Accessed candidate invitations list')
+    
+    invitations = get_all_candidate_invitations()
+    return jsonify({'success': True, 'invitations': invitations})
+
+
+@app.route('/api/admin/candidates/invitations', methods=['POST'])
+@require_admin
+def api_admin_create_invitation():
+    """Create new candidate invitation"""
+    data = request.get_json()
+    email = data.get('email', '').strip().lower()
+    candidate_name = data.get('candidate_name', '').strip()
+    expires_days = data.get('expires_days', 30)
+    
+    if not email or not candidate_name:
+        return jsonify({'success': False, 'error': 'Email and candidate name are required'}), 400
+    
+    # Validate email format
+    import re
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return jsonify({'success': False, 'error': 'Invalid email format'}), 400
+    
+    admin_user = session.get('admin_user', {})
+    result = create_candidate_invitation(email, candidate_name, admin_user.get('id'), expires_days)
+    
+    if result['success']:
+        log_admin_action(admin_user.get('id'), 'create_candidate_invitation', 
+                        f'Created invitation for {candidate_name} ({email})')
+        
+        # Return full URL
+        base_url = request.host_url.rstrip('/')
+        result['full_url'] = f"{base_url}{result['unique_url']}"
+        
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
+
+
+@app.route('/api/admin/candidates/invitations/<int:invitation_id>/deactivate', methods=['POST'])
+@require_admin
+def api_admin_deactivate_invitation(invitation_id):
+    """Deactivate a candidate invitation"""
+    admin_user = session.get('admin_user', {})
+    result = deactivate_invitation(invitation_id)
+    
+    if result['success']:
+        log_admin_action(admin_user.get('id'), 'deactivate_invitation', 
+                        f'Deactivated invitation ID: {invitation_id}')
+        return jsonify(result)
+    else:
+        return jsonify(result), 400
+
+
+@app.route('/api/admin/candidates/<int:user_id>/activity', methods=['GET'])
+@require_admin
+def api_admin_candidate_activity(user_id):
+    """Get candidate activity log"""
+    admin_user = session.get('admin_user', {})
+    log_admin_action(admin_user.get('id'), 'view_candidate_activity', 
+                    f'Viewed activity for user ID: {user_id}')
+    
+    limit = request.args.get('limit', 100, type=int)
+    activities = get_candidate_activity_log(user_id=user_id, limit=limit)
+    summary = get_candidate_summary(user_id)
+    
+    return jsonify({
+        'success': True,
+        'activities': activities,
+        'summary': summary
+    })
 
 
 # Table Management API Routes (Admin Only)

@@ -285,6 +285,44 @@ def create_user_tables(conn):
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
+    
+    # Create candidate invitations table for unique URL access
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS candidate_invitations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            candidate_name TEXT NOT NULL,
+            invitation_token TEXT UNIQUE NOT NULL,
+            created_by INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP,
+            is_used BOOLEAN DEFAULT 0,
+            used_at TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1,
+            FOREIGN KEY (created_by) REFERENCES users (id)
+        )
+    ''')
+    
+    # Create comprehensive candidate activity log
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS candidate_activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            invitation_token TEXT,
+            activity_type TEXT NOT NULL,
+            details TEXT,
+            query_text TEXT,
+            execution_time_ms INTEGER,
+            success BOOLEAN,
+            error_message TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip_address TEXT,
+            user_agent TEXT,
+            page_url TEXT,
+            session_duration_ms INTEGER,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
 
 
 def verify_user_database_schema(conn):

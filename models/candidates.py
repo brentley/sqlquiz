@@ -305,3 +305,127 @@ def get_candidate_summary(user_id):
         return None
     finally:
         conn.close()
+
+
+def start_impersonation(admin_user_id, target_user_id):
+    """Start impersonating a candidate user (admin only)"""
+    conn = get_user_db_connection()
+    try:
+        # Get target user info
+        target_user = conn.execute('SELECT * FROM users WHERE id = ?', (target_user_id,)).fetchone()
+        if not target_user:
+            return {'success': False, 'error': 'Target user not found'}
+        
+        # Get admin user info
+        admin_user = conn.execute('SELECT * FROM users WHERE id = ? AND is_admin = 1', (admin_user_id,)).fetchone()
+        if not admin_user:
+            return {'success': False, 'error': 'Only admins can impersonate users'}
+        
+        # Generate impersonation session token
+        impersonation_token = generate_invitation_token()
+        
+        # Create impersonation session record
+        conn.execute('''
+            INSERT INTO user_sessions 
+            (user_id, session_token, ip_address, user_agent, is_admin, is_active, 
+             impersonated_by, impersonation_start_time)
+            VALUES (?, ?, ?, ?, 0, 1, ?, CURRENT_TIMESTAMP)
+        ''', (target_user_id, impersonation_token, request.remote_addr, 
+              request.headers.get('User-Agent'), admin_user_id))
+        
+        # Log impersonation start
+        log_candidate_activity(
+            user_id=target_user_id,
+            activity_type='impersonation_started',
+            details=f"Admin {admin_user['username']} ({admin_user['email']}) started impersonating user",
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent'),
+            page_url=request.url
+        )
+        
+        conn.commit()
+        
+        return {
+            'success': True,
+            'impersonation_token': impersonation_token,
+            'target_user': dict(target_user),
+            'admin_user': dict(admin_user)
+        }
+        
+    except Exception as e:
+        conn.rollback()
+        return {'success': False, 'error': str(e)}
+    finally:
+        conn.close()
+
+
+def end_impersonation(session_token):
+    """End impersonation session"""
+    conn = get_user_db_connection()
+    try:
+        # Get impersonation session
+        session = conn.execute('''
+            SELECT * FROM user_sessions 
+            WHERE session_token = ? AND impersonated_by IS NOT NULL
+        ''', (session_token,)).fetchone()
+        
+        if not session:
+            return {'success': False, 'error': 'No active impersonation session found'}
+        
+        # Get admin and target user info
+        admin_user = conn.execute('SELECT * FROM users WHERE id = ?', (session['impersonated_by'],)).fetchone()
+        target_user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+        
+        # Log impersonation end
+        log_candidate_activity(
+            user_id=session['user_id'],
+            activity_type='impersonation_ended',
+            details=f"Admin {admin_user['username']} ({admin_user['email']}) ended impersonation session",
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        
+        # Deactivate impersonation session
+        conn.execute('''
+            UPDATE user_sessions 
+            SET is_active = 0, impersonation_end_time = CURRENT_TIMESTAMP
+            WHERE session_token = ?
+        ''', (session_token,))
+        
+        conn.commit()
+        
+        return {
+            'success': True,
+            'admin_user': dict(admin_user),
+            'target_user': dict(target_user)
+        }
+        
+    except Exception as e:
+        conn.rollback()
+        return {'success': False, 'error': str(e)}
+    finally:
+        conn.close()
+
+
+def get_impersonation_info(session_token):
+    """Get information about current impersonation session"""
+    conn = get_user_db_connection()
+    try:
+        session = conn.execute('''
+            SELECT us.*, u_admin.username as admin_username, u_admin.email as admin_email,
+                   u_target.username as target_username, u_target.email as target_email
+            FROM user_sessions us
+            LEFT JOIN users u_admin ON us.impersonated_by = u_admin.id
+            LEFT JOIN users u_target ON us.user_id = u_target.id
+            WHERE us.session_token = ? AND us.impersonated_by IS NOT NULL AND us.is_active = 1
+        ''', (session_token,)).fetchone()
+        
+        if session:
+            return dict(session)
+        return None
+        
+    except Exception as e:
+        print(f"Error getting impersonation info: {e}")
+        return None
+    finally:
+        conn.close()

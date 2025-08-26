@@ -114,6 +114,27 @@
         </div>
     </nav>
 
+    <!-- Impersonation Banner -->
+    {% if session.impersonated_user_id and session.admin_user %}
+    <div class="alert alert-warning alert-dismissible d-flex align-items-center mb-0" style="border-radius: 0;">
+        <i class="fas fa-user-secret fa-lg me-3"></i>
+        <div class="flex-grow-1">
+            <strong>🔍 Admin Impersonation Active</strong>
+            <br>
+            <small>
+                Admin <strong>{{ session.admin_user.email }}</strong> is impersonating 
+                <strong>{{ session.impersonated_user.username }}</strong>. 
+                All activity is being logged as impersonation.
+            </small>
+        </div>
+        <div class="ms-3">
+            <button class="btn btn-sm btn-outline-dark" onclick="endImpersonation()">
+                <i class="fas fa-sign-out-alt me-1"></i>End Impersonation
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Main Content -->
     <main class="container my-4">
         {% block content %}{% endblock %}
@@ -144,6 +165,35 @@
     <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.2/mode/sql/sql.js"></script>
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/app.js') }}?v={{ git_commit }}"></script>
+    
+    <!-- Impersonation JavaScript -->
+    <script>
+    function endImpersonation() {
+        if (!confirm('Are you sure you want to end the impersonation session?\n\nYou will be returned to the admin dashboard.')) {
+            return;
+        }
+        
+        fetch('/api/admin/end-impersonation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Impersonation ended successfully. Returning to admin dashboard.');
+                window.location.href = data.redirect_url;
+            } else {
+                alert(`Failed to end impersonation: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error ending impersonation:', error);
+            alert('Error ending impersonation. Please try again.');
+        });
+    }
+    </script>
     
     {% block scripts %}{% endblock %}
 </body>

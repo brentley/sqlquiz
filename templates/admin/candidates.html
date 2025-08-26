@@ -256,6 +256,11 @@ function displayCandidates() {
                            class="btn btn-outline-primary btn-sm">
                             <i class="fas fa-eye me-1"></i>View Details
                         </a>
+                        <button class="btn btn-outline-warning btn-sm" 
+                                onclick="impersonateCandidate(${candidate.id}, '${candidate.username}')"
+                                title="Impersonate this candidate">
+                            <i class="fas fa-user-secret me-1"></i>Impersonate
+                        </button>
                         <button class="btn btn-outline-success btn-sm" 
                                 onclick="exportCandidate('${candidate.username}')">
                             <i class="fas fa-download me-1"></i>Export
@@ -291,6 +296,33 @@ function exportCandidate(username) {
             console.error('Error exporting candidate data:', error);
             alert('Error exporting candidate data. Please try again.');
         });
+}
+
+function impersonateCandidate(userId, username) {
+    if (!confirm(`Are you sure you want to impersonate candidate "${username}"?\n\nThis will:\n• Log you in as the candidate\n• Track all activity as impersonation\n• Allow you to see their exact experience\n\nClick OK to start impersonation.`)) {
+        return;
+    }
+    
+    fetch(`/api/admin/impersonate/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message and redirect
+            alert(`Successfully started impersonating "${username}".\n\nYou will now see the candidate experience. Use the "End Impersonation" button to return to admin mode.`);
+            window.location.href = data.redirect_url;
+        } else {
+            alert(`Failed to start impersonation: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error starting impersonation:', error);
+        alert('Error starting impersonation. Please try again.');
+    });
 }
 </script>
 {% endblock %}

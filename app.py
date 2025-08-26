@@ -33,7 +33,8 @@ from models.admin_auth import (
 from models.candidates import (
     create_candidate_invitation, validate_invitation_token, authenticate_candidate,
     log_candidate_activity, get_all_candidate_invitations, get_candidate_activity_log,
-    deactivate_invitation, get_candidate_summary
+    deactivate_invitation, get_candidate_summary, start_impersonation,
+    end_impersonation, get_impersonation_info
 )
 
 
@@ -59,9 +60,38 @@ def require_login(f):
 
 
 def require_candidate_auth(f):
-    """Decorator to require candidate authentication via unique URL"""
+    """Decorator to require candidate authentication via unique URL or admin impersonation"""
     def decorated_function(*args, **kwargs):
-        # Check for candidate session
+        # Check for admin impersonation session first
+        if 'impersonation_token' in session and 'impersonated_user_id' in session:
+            # Validate impersonation session is still active
+            impersonation_info = get_impersonation_info(session['impersonation_token'])
+            if impersonation_info and impersonation_info['user_id'] == session['impersonated_user_id']:
+                # Set up candidate session variables for impersonation
+                session['candidate_user_id'] = session['impersonated_user_id']
+                session['candidate_name'] = impersonation_info['target_username']
+                session['candidate_email'] = impersonation_info['target_email']
+                session['username'] = impersonation_info['target_username']
+                session['user_id'] = session['impersonated_user_id']
+                
+                # Log impersonated activity
+                log_candidate_activity(
+                    user_id=session['impersonated_user_id'],
+                    activity_type='impersonated_page_access',
+                    details=f"Admin {impersonation_info['admin_username']} accessed {request.endpoint} while impersonating user",
+                    page_url=request.url,
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent')
+                )
+                
+                return f(*args, **kwargs)
+            else:
+                # Invalid impersonation session, clear it
+                session.pop('impersonation_token', None)
+                session.pop('impersonated_user_id', None)
+                session.pop('impersonated_user', None)
+        
+        # Check for regular candidate session
         if 'candidate_session_token' not in session or 'candidate_user_id' not in session:
             return redirect(url_for('candidate_login_page'))
         
@@ -911,6 +941,80 @@ def api_admin_modify_column(table_name, column_name):
     if result['success']:
         log_admin_action(admin_user.get('id'), 'modify_column_success', f'Successfully changed {table_name}.{column_name} to {new_type}')
         return jsonify(result)
+    else:
+        return jsonify(result), 400
+
+
+# Admin impersonation routes
+@app.route('/api/admin/impersonate/<int:user_id>', methods=['POST'])
+@require_admin
+def api_admin_start_impersonation(user_id):
+    """Start impersonating a candidate user"""
+    admin_user = session.get('admin_user', {})
+    admin_user_id = admin_user.get('id')
+    
+    if not admin_user_id:
+        return jsonify({'success': False, 'error': 'Admin user not found in session'}), 401
+    
+    log_admin_action(admin_user_id, 'start_impersonation', f'Attempting to impersonate user ID: {user_id}')
+    
+    result = start_impersonation(admin_user_id, user_id)
+    if result['success']:
+        # Set impersonation session
+        session['impersonation_token'] = result['impersonation_token']
+        session['impersonated_user_id'] = user_id
+        session['impersonated_user'] = result['target_user']
+        
+        log_admin_action(admin_user_id, 'start_impersonation_success', 
+                        f'Successfully started impersonating {result["target_user"]["username"]} (ID: {user_id})')
+        
+        return jsonify({
+            'success': True,
+            'redirect_url': url_for('index'),
+            'target_user': result['target_user']
+        })
+    else:
+        log_admin_action(admin_user_id, 'start_impersonation_failed', 
+                        f'Failed to impersonate user ID {user_id}: {result["error"]}')
+        return jsonify(result), 400
+
+
+@app.route('/api/admin/end-impersonation', methods=['POST'])
+@require_admin
+def api_admin_end_impersonation():
+    """End current impersonation session"""
+    admin_user = session.get('admin_user', {})
+    admin_user_id = admin_user.get('id')
+    impersonation_token = session.get('impersonation_token')
+    
+    if not impersonation_token:
+        return jsonify({'success': False, 'error': 'No active impersonation session found'}), 400
+    
+    log_admin_action(admin_user_id, 'end_impersonation', 'Attempting to end impersonation session')
+    
+    result = end_impersonation(impersonation_token)
+    if result['success']:
+        # Clear impersonation session data
+        session.pop('impersonation_token', None)
+        session.pop('impersonated_user_id', None)
+        session.pop('impersonated_user', None)
+        
+        # Clear candidate session data that was set during impersonation
+        session.pop('candidate_session_token', None)
+        session.pop('candidate_user_id', None)
+        session.pop('candidate_name', None)
+        session.pop('candidate_email', None)
+        session.pop('invitation_token', None)
+        session.pop('username', None)
+        session.pop('user_id', None)
+        
+        log_admin_action(admin_user_id, 'end_impersonation_success', 
+                        f'Successfully ended impersonation of {result["target_user"]["username"]}')
+        
+        return jsonify({
+            'success': True,
+            'redirect_url': url_for('admin_dashboard')
+        })
     else:
         return jsonify(result), 400
 

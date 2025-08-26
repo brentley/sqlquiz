@@ -196,7 +196,11 @@ def create_user_tables(conn):
             user_agent TEXT,
             is_admin BOOLEAN DEFAULT 0,
             is_active BOOLEAN DEFAULT 1,
-            FOREIGN KEY (user_id) REFERENCES users (id)
+            impersonated_by INTEGER,
+            impersonation_start_time TIMESTAMP,
+            impersonation_end_time TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (impersonated_by) REFERENCES users (id)
         )
     ''')
     
@@ -393,7 +397,7 @@ def verify_user_database_schema(conn):
             print("Recreated user_sessions table with correct schema")
         else:
             # Check for missing columns in existing table
-            required_sessions_columns = ['id', 'user_id', 'session_token', 'login_time', 'last_activity', 'ip_address', 'user_agent', 'is_admin', 'is_active']
+            required_sessions_columns = ['id', 'user_id', 'session_token', 'login_time', 'last_activity', 'ip_address', 'user_agent', 'is_admin', 'is_active', 'impersonated_by', 'impersonation_start_time', 'impersonation_end_time']
             missing_columns = [col for col in required_sessions_columns if col not in sessions_columns]
             
             if missing_columns:
@@ -414,6 +418,12 @@ def verify_user_database_schema(conn):
                         conn.execute("ALTER TABLE user_sessions ADD COLUMN is_active BOOLEAN DEFAULT 1")
                     elif column == 'is_admin':
                         conn.execute("ALTER TABLE user_sessions ADD COLUMN is_admin BOOLEAN DEFAULT 0")
+                    elif column == 'impersonated_by':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN impersonated_by INTEGER")
+                    elif column == 'impersonation_start_time':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN impersonation_start_time TIMESTAMP")
+                    elif column == 'impersonation_end_time':
+                        conn.execute("ALTER TABLE user_sessions ADD COLUMN impersonation_end_time TIMESTAMP")
                     print(f"Added missing column: {column}")
             else:
                 print("User_sessions table schema is complete")

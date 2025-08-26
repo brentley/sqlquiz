@@ -29,11 +29,11 @@ def seed_healthcare_challenges(force_reseed=False):
         
         # VisiQuate Healthcare Data Integrity Scenarios - Exact match to evaluation document
         challenges = [
-            # Level 1: Basic Data Integrity
+            # Level 1: Basic Data Integrity (Accounts table scenarios)
             {
                 'title': 'Balance Validity',
-                'description': '''**Data Integrity Scenario: Balance Validity**
-
+                'description': '''**Data Set(s)**: Accounts
+**Scenario**: Balance Validity
 **Rule/Constraint**: Total Balance must equal Total Charges less Total Payments and Total Adjustments
 
 **Task for Applicant**:
@@ -47,94 +47,13 @@ def seed_healthcare_challenges(force_reseed=False):
                 'expected_query': 'SELECT invoice_id, balance, total_charges, total_payments, total_adjustments, (total_charges - total_payments - total_adjustments) as calculated_balance, (balance - (total_charges - total_payments - total_adjustments)) as variance FROM hw_accounts WHERE (balance - (total_charges - total_payments - total_adjustments)) != 0;',
                 'expected_result_count': None,
                 'hints': '["Check the balance formula: Balance = Charges - Payments - Adjustments", "Look for accounts where the calculated balance differs from the recorded balance", "Calculate variance amounts and provide examples", "Consider NULL value handling"]',
-                'time_limit_minutes': 25
-            },
-
-            # Level 2: Cross-Table Rollup Validation
-            {
-                'title': 'Adjustment Rollup Validation',
-                'description': '''**Data Integrity Scenario: Amounts in accounts rolled up from transactions**
-
-**Rule/Constraint**: Total Adjustments in Accounts must equal the sum of Adjustments from Transactions
-
-**Task for Applicant**:
-- Test rule/constraint  
-- Summarize rule adherence (volumes, amounts, etc.)
-- Provide detailed record examples where rule is not valid
-
-**Expected Approach**: Cross-reference account totals with transaction detail sums.''',
-                'difficulty_level': 2,
-                'category': 'data-integrity',
-                'expected_query': 'SELECT a.invoice_id, a.total_adjustments as account_adjustments, COALESCE(SUM(t.total_adjustments), 0) as transaction_adjustments, (a.total_adjustments - COALESCE(SUM(t.total_adjustments), 0)) as variance FROM hw_accounts a LEFT JOIN hw_transactions t ON a.invoice_id = t.invoice_id GROUP BY a.invoice_id, a.total_adjustments HAVING ABS(variance) > 0.01;',
-                'expected_result_count': None,
-                'hints': '["JOIN accounts and transactions on invoice_id", "Sum transaction adjustments by account", "Compare with account-level totals", "Handle accounts with no transactions using LEFT JOIN"]',
-                'time_limit_minutes': 30
-            },
-
-            {
-                'title': 'Payment Rollup Validation',
-                'description': '''**Data Integrity Scenario: Amounts in accounts rolled up from transactions**
-
-**Rule/Constraint**: Total Payments in Accounts must equal the sum of Payments from Transactions
-
-**Task for Applicant**:
-- Test rule/constraint
-- Summarize rule adherence (volumes, amounts, etc.)  
-- Provide detailed record examples where rule is not valid
-
-**Expected Approach**: Validate payment rollup accuracy between accounts and transactions.''',
-                'difficulty_level': 2,
-                'category': 'data-integrity',
-                'expected_query': 'SELECT a.invoice_id, a.total_payments as account_payments, COALESCE(SUM(t.total_payments), 0) as transaction_payments, (a.total_payments - COALESCE(SUM(t.total_payments), 0)) as variance FROM hw_accounts a LEFT JOIN hw_transactions t ON a.invoice_id = t.invoice_id GROUP BY a.invoice_id, a.total_payments HAVING ABS(variance) > 0.01;',
-                'expected_result_count': None,
-                'hints': '["Compare total_payments between accounts and transactions", "Use SUM to aggregate transaction payments by invoice", "Look for discrepancies between the two sources", "Provide summary statistics on adherence"]',
-                'time_limit_minutes': 30
-            },
-
-            {
-                'title': 'Insurance Payment Rollup Validation',
-                'description': '''**Data Integrity Scenario: Amounts in accounts rolled up from transactions**
-
-**Rule/Constraint**: Total Insurance Payments in Accounts must equal the sum of Ins Payments from Transactions
-
-**Task for Applicant**:
-- Test rule/constraint
-- Summarize rule adherence (volumes, amounts, etc.)
-- Provide detailed record examples where rule is not valid
-
-**Expected Approach**: Validate insurance payment rollup integrity.''',
-                'difficulty_level': 2,
-                'category': 'data-integrity', 
-                'expected_query': 'SELECT a.invoice_id, a.ins_payments as account_ins_payments, COALESCE(SUM(t.total_ins_payments), 0) as transaction_ins_payments, (a.ins_payments - COALESCE(SUM(t.total_ins_payments), 0)) as variance FROM hw_accounts a LEFT JOIN hw_transactions t ON a.invoice_id = t.invoice_id GROUP BY a.invoice_id, a.ins_payments HAVING ABS(variance) > 0.01;',
-                'expected_result_count': None,
-                'hints': '["Focus on insurance payment amounts specifically", "Compare ins_payments in accounts with total_ins_payments in transactions", "Identify patterns in discrepancies", "Calculate volume and amount summaries"]',
-                'time_limit_minutes': 30
-            },
-
-            {
-                'title': 'Patient Payment Rollup Validation',
-                'description': '''**Data Integrity Scenario: Amounts in accounts rolled up from transactions**
-
-**Rule/Constraint**: Total Patient Payments in Accounts must equal the sum of Patient Payments from Transactions
-
-**Task for Applicant**:
-- Test rule/constraint
-- Summarize rule adherence (volumes, amounts, etc.)
-- Provide detailed record examples where rule is not valid
-
-**Expected Approach**: Validate patient payment rollup accuracy.''',
-                'difficulty_level': 2,
-                'category': 'data-integrity',
-                'expected_query': 'SELECT a.invoice_id, a.pt_payments as account_pt_payments, COALESCE(SUM(t.total_pt_payments), 0) as transaction_pt_payments, (a.pt_payments - COALESCE(SUM(t.total_pt_payments), 0)) as variance FROM hw_accounts a LEFT JOIN hw_transactions t ON a.invoice_id = t.invoice_id GROUP BY a.invoice_id, a.pt_payments HAVING ABS(variance) > 0.01;',
-                'expected_result_count': None,
-                'hints': '["Compare patient payment totals between accounts and transactions", "Use pt_payments and total_pt_payments fields", "Look for systematic vs random discrepancies", "Provide variance analysis"]',
                 'time_limit_minutes': 30
             },
 
             {
                 'title': 'Claim Date Patterns',
-                'description': '''**Data Integrity Scenario: Claim Date Patterns**
-
+                'description': '''**Data Set(s)**: Accounts
+**Scenario**: Claim Date Patterns
 **Rule/Constraint**: By default first_claim_bill_date is supposed to be before last_claim_bill_date
 
 **Task for Applicant**:
@@ -148,19 +67,100 @@ def seed_healthcare_challenges(force_reseed=False):
                 'expected_query': "SELECT invoice_id, first_claim_bill_date, last_claim_bill_date, julianday(last_claim_bill_date) - julianday(first_claim_bill_date) as days_diff FROM hw_accounts WHERE first_claim_bill_date IS NOT NULL AND last_claim_bill_date IS NOT NULL AND first_claim_bill_date > last_claim_bill_date;",
                 'expected_result_count': None,
                 'hints': '["Compare first_claim_bill_date with last_claim_bill_date", "Look for cases where first date is after last date", "Calculate time differences where appropriate", "Consider NULL handling"]',
-                'time_limit_minutes': 25
+                'time_limit_minutes': 30
             },
 
-            # Level 3: Balance Summary Analysis
+            # Level 2: Cross-Table Rollup Validation (Accounts + Transactions)
             {
-                'title': 'Balance Summary Validation',
-                'description': '''**Data Integrity Scenario: Balance Summary**
+                'title': 'Amounts in accounts rolled up from transactions - Adjustments',
+                'description': '''**Data Set(s)**: Accounts + Transactions
+**Scenario**: Amounts in accounts rolled up from transactions
+**Rule/Constraint**: Total Adjustments in Accounts must equal the sum of Adjustments from Transactions
 
+**Task for Applicant**:
+- Test rule/constraint
+- Summarize rule adherence (volumes, amounts, etc.)
+- Provide detailed record examples where rule is not valid
+
+**Expected Approach**: Cross-reference account totals with transaction detail sums.''',
+                'difficulty_level': 2,
+                'category': 'data-integrity',
+                'expected_query': 'SELECT a.invoice_id, a.total_adjustments as account_adjustments, COALESCE(SUM(t.total_adjustments), 0) as transaction_adjustments, (a.total_adjustments - COALESCE(SUM(t.total_adjustments), 0)) as variance FROM hw_accounts a LEFT JOIN hw_transactions t ON a.invoice_id = t.invoice_id GROUP BY a.invoice_id, a.total_adjustments HAVING ABS(variance) > 0.01;',
+                'expected_result_count': None,
+                'hints': '["JOIN accounts and transactions on invoice_id", "Sum transaction adjustments by account", "Compare with account-level totals", "Handle accounts with no transactions using LEFT JOIN"]',
+                'time_limit_minutes': 35
+            },
+
+            {
+                'title': 'Amounts in accounts rolled up from transactions - Payments',
+                'description': '''**Data Set(s)**: Accounts + Transactions
+**Scenario**: Amounts in accounts rolled up from transactions
+**Rule/Constraint**: Total Payments in Accounts must equal the sum of Payments from Transactions
+
+**Task for Applicant**:
+- Test rule/constraint
+- Summarize rule adherence (volumes, amounts, etc.)
+- Provide detailed record examples where rule is not valid
+
+**Expected Approach**: Validate payment rollup accuracy between accounts and transactions.''',
+                'difficulty_level': 2,
+                'category': 'data-integrity',
+                'expected_query': 'SELECT a.invoice_id, a.total_payments as account_payments, COALESCE(SUM(t.total_payments), 0) as transaction_payments, (a.total_payments - COALESCE(SUM(t.total_payments), 0)) as variance FROM hw_accounts a LEFT JOIN hw_transactions t ON a.invoice_id = t.invoice_id GROUP BY a.invoice_id, a.total_payments HAVING ABS(variance) > 0.01;',
+                'expected_result_count': None,
+                'hints': '["Compare total_payments between accounts and transactions", "Use SUM to aggregate transaction payments by invoice", "Look for discrepancies between the two sources", "Provide summary statistics on adherence"]',
+                'time_limit_minutes': 35
+            },
+
+            {
+                'title': 'Amounts in accounts rolled up from transactions - Insurance Payments',
+                'description': '''**Data Set(s)**: Accounts + Transactions
+**Scenario**: Amounts in accounts rolled up from transactions
+**Rule/Constraint**: Total Insurance Payments in Accounts must equal the sum of Ins Payments from Transactions
+
+**Task for Applicant**:
+- Test rule/constraint
+- Summarize rule adherence (volumes, amounts, etc.)
+- Provide detailed record examples where rule is not valid
+
+**Expected Approach**: Validate insurance payment rollup integrity.''',
+                'difficulty_level': 2,
+                'category': 'data-integrity',
+                'expected_query': 'SELECT a.invoice_id, a.ins_payments as account_ins_payments, COALESCE(SUM(t.total_ins_payments), 0) as transaction_ins_payments, (a.ins_payments - COALESCE(SUM(t.total_ins_payments), 0)) as variance FROM hw_accounts a LEFT JOIN hw_transactions t ON a.invoice_id = t.invoice_id GROUP BY a.invoice_id, a.ins_payments HAVING ABS(variance) > 0.01;',
+                'expected_result_count': None,
+                'hints': '["Focus on insurance payment amounts specifically", "Compare ins_payments in accounts with total_ins_payments in transactions", "Identify patterns in discrepancies", "Calculate volume and amount summaries"]',
+                'time_limit_minutes': 35
+            },
+
+            {
+                'title': 'Amounts in accounts rolled up from transactions - Patient Payments',
+                'description': '''**Data Set(s)**: Accounts + Transactions
+**Scenario**: Amounts in accounts rolled up from transactions
+**Rule/Constraint**: Total Patient Payments in Accounts must equal the sum of Patient Payments from Transactions
+
+**Task for Applicant**:
+- Test rule/constraint
+- Summarize rule adherence (volumes, amounts, etc.)
+- Provide detailed record examples where rule is not valid
+
+**Expected Approach**: Validate patient payment rollup accuracy.''',
+                'difficulty_level': 2,
+                'category': 'data-integrity',
+                'expected_query': 'SELECT a.invoice_id, a.pt_payments as account_pt_payments, COALESCE(SUM(t.total_pt_payments), 0) as transaction_pt_payments, (a.pt_payments - COALESCE(SUM(t.total_pt_payments), 0)) as variance FROM hw_accounts a LEFT JOIN hw_transactions t ON a.invoice_id = t.invoice_id GROUP BY a.invoice_id, a.pt_payments HAVING ABS(variance) > 0.01;',
+                'expected_result_count': None,
+                'hints': '["Compare patient payment totals between accounts and transactions", "Use pt_payments and total_pt_payments fields", "Look for systematic vs random discrepancies", "Provide variance analysis"]',
+                'time_limit_minutes': 35
+            },
+
+            # Level 3: Balance Summary Analysis (Accounts)
+            {
+                'title': 'Balance Summary - Component Validation',
+                'description': '''**Data Set(s)**: Accounts
+**Scenario**: Balance Summary
 **Rule/Constraint**: Account Balance must equal the sum of Insurance Balance + Patient Balance
 
 **Task for Applicant**:
 - Test rule/constraint
-- Summarize data patterns and/or rule adherence (showing volumes, amounts, etc.) 
+- Summarize data patterns and/or rule adherence (showing volumes, amounts, etc.)
 - Provide detailed record examples where rule is not valid
 
 **Expected Approach**: Validate balance component relationships.''',
@@ -169,13 +169,13 @@ def seed_healthcare_challenges(force_reseed=False):
                 'expected_query': 'SELECT invoice_id, balance, ins_balance, patient_balance, (ins_balance + patient_balance) as calculated_balance, (balance - (ins_balance + patient_balance)) as variance FROM hw_accounts WHERE ABS(balance - (ins_balance + patient_balance)) > 0.01;',
                 'expected_result_count': None,
                 'hints': '["Test if Account Balance = Insurance Balance + Patient Balance", "Calculate variances between recorded and calculated balances", "Look for patterns in the discrepancies", "Provide summary statistics on rule adherence"]',
-                'time_limit_minutes': 35
+                'time_limit_minutes': 40
             },
 
             {
-                'title': 'AR Status Distribution Analysis',
-                'description': '''**Analysis Scenario: Balance Summary**
-
+                'title': 'Balance Summary - AR Status Distribution',
+                'description': '''**Data Set(s)**: Accounts
+**Scenario**: Balance Summary
 **Data Context**: The account data has both open and closed accounts (ar_status)
 
 **Task for Applicant**:
@@ -191,14 +191,22 @@ def seed_healthcare_challenges(force_reseed=False):
                 'expected_query': "SELECT ar_status, COUNT(*) as account_count, ROUND(AVG(balance), 2) as avg_balance, strftime('%Y-%m', service_start_date) as service_month FROM hw_accounts WHERE service_start_date IS NOT NULL GROUP BY ar_status, service_month ORDER BY service_month DESC;",
                 'expected_result_count': None,
                 'hints': '["Group accounts by AR status and analyze patterns", "Look at distribution by time periods (service dates)", "Calculate percentages for different attributes", "Identify payors with interesting open/closed patterns", "Provide business insights about the findings"]',
-                'time_limit_minutes': 40
+                'time_limit_minutes': 45
             },
 
             {
                 'title': 'Primary Payor Patterns',
-                'description': '''**Analysis Scenario: Primary Payor Patterns**
-
-**Review Payor Attributes**: cur_iplan_code, cur_payor, iplan_1_code, iplan_1_payor, iplan_2_code, iplan_2_payor, iplan_3_code, iplan_3_payor
+                'description': '''**Data Set(s)**: Accounts
+**Scenario**: Primary Payor Patterns
+**Review Payor Attributes**:
+- cur_iplan_code
+- cur_payor
+- iplan_1_code
+- iplan_1_payor
+- iplan_2_code
+- iplan_2_payor
+- iplan_3_code
+- iplan_3_payor
 
 **Task for Applicant**:
 - Analyze payor patterns and provide findings
@@ -213,21 +221,18 @@ def seed_healthcare_challenges(force_reseed=False):
                 'expected_query': "SELECT cur_payor, iplan_1_payor, COUNT(*) as total_accounts, COUNT(CASE WHEN ar_status = 'Open' THEN 1 END) as open_accounts, ROUND(100.0 * COUNT(CASE WHEN ar_status = 'Open' THEN 1 END) / COUNT(*), 2) as open_percentage, ROUND(AVG(CASE WHEN total_charges > 0 THEN 100.0 * total_payments / total_charges END), 2) as payment_percentage FROM hw_accounts WHERE cur_payor IS NOT NULL AND total_charges > 0 GROUP BY cur_payor, iplan_1_payor ORDER BY payment_percentage DESC;",
                 'expected_result_count': None,
                 'hints': '["Analyze relationships between different payor fields", "Calculate payment ratios and performance metrics", "Look at open/closed account patterns by payor", "Consider service date trends", "Provide business insights about payor performance"]',
-                'time_limit_minutes': 45
+                'time_limit_minutes': 50
             },
 
-            # Level 4: Expert Crosswalk Analysis  
+            # Level 4: Expert Crosswalk Analysis
             {
                 'title': 'Transaction Crosswalk Uniqueness',
-                'description': '''**Data Integrity Scenario: Transaction Crosswalk**
-
+                'description': '''**Data Set(s)**: Transaction Crosswalk
+**Scenario**: Uniqueness
 **Rule/Constraint**: hw_trn_codes is joined to hw_transactions on txn_type_code and txn_sub_type_code
 
 **Task for Applicant**:
 - Review data as it relates to transactions and provide analysis on any issues with the crosswalk table as it relates to transactions
-- Validate uniqueness and referential integrity
-- Identify orphaned records and unused codes
-- Provide comprehensive data quality assessment
 
 **Expected Approach**: Full integrity audit of transaction code crosswalk relationships.''',
                 'difficulty_level': 4,
@@ -235,7 +240,7 @@ def seed_healthcare_challenges(force_reseed=False):
                 'expected_query': "SELECT 'Transaction codes not in crosswalk' as issue_type, COUNT(*) as count FROM hw_transactions t LEFT JOIN hw_trn_codes c ON t.txn_type_code = c.txn_type_code AND t.txn_sub_type_code = c.txn_sub_type_code WHERE c.txn_type_code IS NULL UNION ALL SELECT 'Duplicate crosswalk entries' as issue_type, COUNT(*) FROM (SELECT txn_type_code, txn_sub_type_code FROM hw_trn_codes GROUP BY txn_type_code, txn_sub_type_code HAVING COUNT(*) > 1);",
                 'expected_result_count': None,
                 'hints': '["Test the join relationship between transactions and crosswalk tables", "Look for transactions that cannot be matched to crosswalk codes", "Check for duplicate entries in the crosswalk table", "Identify unused crosswalk codes", "Provide comprehensive data quality summary"]',
-                'time_limit_minutes': 50
+                'time_limit_minutes': 60
             }
         ]
         

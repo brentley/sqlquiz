@@ -18,7 +18,8 @@ from models.users import (
     get_all_candidates, get_candidate_detail, get_system_analytics, export_candidate_report
 )
 from models.challenges import (
-    get_all_challenges, get_challenge_by_id, record_challenge_attempt, get_user_progress
+    get_all_challenges, get_challenge_by_id, record_challenge_attempt, get_user_progress,
+    seed_healthcare_challenges
 )
 from utils.data_processing import (
     process_csv_upload, get_database_schema, get_table_names, 
@@ -1055,6 +1056,26 @@ def api_log_activity():
     except Exception as e:
         print(f"Error logging activity: {e}")
         return jsonify({'error': 'Failed to log activity'}), 500
+
+
+@app.route('/api/admin/challenges/reseed', methods=['POST'])
+@require_admin
+def api_admin_reseed_challenges():
+    """Reseed challenges with new evaluation scenarios (Admin only)"""
+    try:
+        admin_user = session.get('admin_user', {})
+        log_admin_action(admin_user.get('id'), 'reseed_challenges', 'Reseeding challenges with new evaluation scenarios')
+        
+        # Force reseed challenges
+        seed_healthcare_challenges(force_reseed=True)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Challenges reseeded successfully with VisiQuate evaluation scenarios'
+        })
+    except Exception as e:
+        print(f"Error reseeding challenges: {e}")
+        return jsonify({'error': 'Failed to reseed challenges'}), 500
 
 
 # Error handlers

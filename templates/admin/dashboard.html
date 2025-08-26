@@ -105,6 +105,43 @@
             </div>
         </div>
 
+        <!-- Admin Tools -->
+        <div class="row mb-5">
+            <div class="col-md-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cogs me-2"></i>Admin Tools
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    <button class="btn btn-outline-primary" onclick="reseedChallenges()">
+                                        <i class="fas fa-sync-alt me-2"></i>Reseed Evaluation Challenges
+                                    </button>
+                                    <small class="text-muted mt-1">
+                                        Update challenges with latest VisiQuate evaluation scenarios
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    <a href="{{ url_for('challenges') }}" class="btn btn-outline-success">
+                                        <i class="fas fa-clipboard-check me-2"></i>Preview Challenges
+                                    </a>
+                                    <small class="text-muted mt-1">
+                                        Preview the evaluation scenarios as candidates see them
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Recent Activity -->
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-light">
@@ -364,6 +401,40 @@ function displayDetailedAnalytics(data) {
     
     html += '</div>';
     container.innerHTML = html;
+}
+
+function reseedChallenges() {
+    if (!confirm('This will replace all existing challenges with the new VisiQuate evaluation scenarios.\n\nAll candidate progress will be lost. Are you sure you want to continue?')) {
+        return;
+    }
+    
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Reseeding...';
+    button.disabled = true;
+    
+    fetch('/api/admin/challenges/reseed', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Challenges reseeded successfully!\n\nThe evaluation scenarios are now ready for preview and candidate use.');
+        } else {
+            alert(`❌ Error reseeding challenges: ${data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error reseeding challenges:', error);
+        alert('❌ Failed to reseed challenges. Please try again.');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
 }
 </script>
 {% endblock %}

@@ -8,12 +8,82 @@
         <!-- Hero Section -->
         <div class="text-center mb-5">
             <h1 class="display-5 mb-3">
-                <i class="fas fa-trophy text-warning me-3"></i>Challenge Mode
+                <i class="fas fa-clipboard-check text-primary me-3"></i>Analysis Evaluation
             </h1>
-            <p class="lead text-muted">
-                Test your data analysis skills with progressive challenges. 
-                Solve real-world healthcare data problems and track your progress!
+            <p class="lead text-muted mb-3">
+                VisiQuate Healthcare Data Analysis Assessment
             </p>
+            <div class="alert alert-info mx-auto" style="max-width: 800px;">
+                <h6><i class="fas fa-info-circle me-2"></i>Important Instructions</h6>
+                <ul class="text-start mb-0">
+                    <li><strong>This is not a SQL proficiency test</strong> - We're evaluating your analytical approach and problem-solving process</li>
+                    <li><strong>No absolute right answers</strong> - Focus on your methodology and insights</li>
+                    <li><strong>Save your queries</strong> - Copy/paste SQL for your interview discussion</li>
+                    <li><strong>Document your findings</strong> - Summarize as you would for a client</li>
+                    <li><strong>Note any questions</strong> - We'll review during your follow-up call</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Data Schema Reference -->
+        <div class="card border-0 shadow-sm mb-5">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-database me-2"></i>Healthcare Data Schema</h5>
+                <button class="btn btn-sm btn-outline-light" onclick="toggleSchema()">
+                    <i class="fas fa-eye me-1"></i>Show/Hide Schema
+                </button>
+            </div>
+            <div class="card-body collapse" id="schemaReference">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><strong>Table Relationships</strong></h6>
+                        <ul>
+                            <li>One account to many charges via <code>invoice_id</code></li>
+                            <li>One account to many transactions via <code>invoice_id</code></li>
+                            <li>Transactions to crosswalk hw_trn_codes on <code>txn_sub_type_code</code></li>
+                        </ul>
+                        
+                        <h6 class="mt-4"><strong>Key Business Rules</strong></h6>
+                        <ul class="small">
+                            <li><strong>Balance Formula:</strong> Balance = Total Charges - Total Payments - Total Adjustments</li>
+                            <li><strong>Account Balance:</strong> Account Balance = Insurance Balance + Patient Balance</li>
+                            <li><strong>AR Status:</strong> If balance ≠ 0 then "Open", else "Closed"</li>
+                            <li><strong>Date Logic:</strong> first_claim_bill_date should be ≤ last_claim_bill_date</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6><strong>Main Tables</strong></h6>
+                        <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                            <table class="table table-sm table-bordered">
+                                <tr><th colspan="2" class="bg-primary text-white">hw_accounts (62 columns)</th></tr>
+                                <tr><td><code>invoice_id</code></td><td>Unique identifier</td></tr>
+                                <tr><td><code>patient_id</code></td><td>Patient identifier</td></tr>
+                                <tr><td><code>ar_status</code></td><td>Open/Closed</td></tr>
+                                <tr><td><code>balance, total_charges, total_payments, total_adjustments</code></td><td>Financial amounts</td></tr>
+                                <tr><td><code>ins_balance, patient_balance</code></td><td>Balance breakdown</td></tr>
+                                <tr><td><code>cur_payor, iplan_1_payor, iplan_2_payor</code></td><td>Insurance payors</td></tr>
+                                <tr><td><code>service_start_date, service_end_date</code></td><td>Service dates</td></tr>
+                                <tr><td><code>first_claim_bill_date, last_claim_bill_date</code></td><td>Claim dates</td></tr>
+                            </table>
+                            
+                            <table class="table table-sm table-bordered mt-3">
+                                <tr><th colspan="2" class="bg-success text-white">hw_transactions (30 columns)</th></tr>
+                                <tr><td><code>txn_id</code></td><td>Unique identifier</td></tr>
+                                <tr><td><code>invoice_id</code></td><td>Links to accounts</td></tr>
+                                <tr><td><code>txn_type_code</code></td><td>ADJ, PMT</td></tr>
+                                <tr><td><code>txn_sub_type_code</code></td><td>Transaction subtype</td></tr>
+                                <tr><td><code>total_adjustments, total_payments</code></td><td>Transaction amounts</td></tr>
+                                <tr><td><code>total_ins_payments, total_pt_payments</code></td><td>Payment breakdown</td></tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-warning mt-3">
+                    <strong>SQLite Constraints:</strong> No CTEs (use subqueries), different date functions. 
+                    Reference SQLite documentation for syntax.
+                </div>
+            </div>
         </div>
 
         <!-- Progress Dashboard -->
@@ -486,6 +556,19 @@ function openSchemaWindow() {
         // Fallback if popup was blocked
         alert('Please allow popups for schema reference window');
         window.open('/schema', '_blank');
+    }
+}
+
+function toggleSchema() {
+    const schemaElement = document.getElementById('schemaReference');
+    const button = event.target.closest('button');
+    
+    if (schemaElement.classList.contains('show')) {
+        schemaElement.classList.remove('show');
+        button.innerHTML = '<i class="fas fa-eye me-1"></i>Show Schema';
+    } else {
+        schemaElement.classList.add('show');
+        button.innerHTML = '<i class="fas fa-eye-slash me-1"></i>Hide Schema';
     }
 }
 </script>

@@ -236,7 +236,7 @@ function displayInvitations(invitations) {
                         <button class="btn btn-outline-info" onclick="viewInvitationUrl('${invitation.invitation_token}', '${invitation.candidate_name}', '${invitation.email}')" title="View URL">
                             <i class="fas fa-link"></i>
                         </button>
-                        <button class="btn btn-outline-primary" onclick="showActivity(${invitation.id}, '${invitation.candidate_name}')" title="View Activity">
+                        <button class="btn btn-outline-primary" onclick="showActivity(${invitation.target_user_id}, '${invitation.candidate_name}')" title="View Activity">
                             <i class="fas fa-chart-line"></i>
                         </button>
                         ${invitation.is_active ? `
@@ -368,7 +368,7 @@ function deactivateInvitation(invitationId) {
     });
 }
 
-function showActivity(invitationId, candidateName) {
+function showActivity(userId, candidateName) {
     document.getElementById('activityCandidateName').textContent = candidateName;
     
     const modal = new bootstrap.Modal(document.getElementById('activityModal'));
@@ -384,22 +384,136 @@ function showActivity(invitationId, candidateName) {
         </div>
     `;
     
-    // Note: This would need the user_id, not invitation_id
-    // For now, show placeholder
-    setTimeout(() => {
+    // Check if userId is null (no user account created yet)
+    if (!userId || userId === 'null') {
         document.getElementById('activityContent').innerHTML = `
             <div class="alert alert-info">
-                <h6>Activity Tracking</h6>
-                <p class="mb-0">Detailed candidate activity tracking will be displayed here, including:</p>
-                <ul class="mb-0">
-                    <li>Query attempts and results</li>
-                    <li>Time spent on assessment</li>
-                    <li>Pages visited and navigation patterns</li>
-                    <li>Challenge completion status</li>
-                </ul>
+                <h6><i class="fas fa-info-circle me-2"></i>No Account Created Yet</h6>
+                <p class="mb-0">This candidate hasn't used their invitation link yet, so no user account exists.</p>
+                <p class="mb-0 mt-2"><small>Activity will appear here once they access their invitation URL and perform actions.</small></p>
             </div>
         `;
-    }, 1000);
+        return;
+    }
+    
+    // Fetch the actual activity data directly with the user_id
+    fetch(`/api/admin/candidates/${userId}/activity`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayCandidateActivity(data.activities, data.summary);
+            } else {
+                throw new Error(data.error || 'Failed to load activity');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading candidate activity:', error);
+            document.getElementById('activityContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <h6>Error Loading Activity</h6>
+                    <p class="mb-0">Unable to load candidate activity: ${error.message}</p>
+                    <p class="mb-0 mt-2"><small>This might be because the candidate hasn't performed any activities yet, or there was a technical issue.</small></p>
+                </div>
+            `;
+        });
+}
+
+function displayCandidateActivity(activities, summary) {
+    const container = document.getElementById('activityContent');
+    
+    if (!activities || activities.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-info">
+                <h6><i class="fas fa-info-circle me-2"></i>No Activity Yet</h6>
+                <p class="mb-0">This candidate hasn't performed any tracked activities yet.</p>
+                <p class="mb-0 mt-2"><small>Activities include: query execution, page navigation, login/logout events, and impersonation sessions.</small></p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = `
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body text-center py-2">
+                        <h6 class="mb-1">${summary?.activity_count || activities.length}</h6>
+                        <small class="text-muted">Total Activities</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 bg-light">
+                    <div class="card-body text-center py-2">
+                        <h6 class="mb-1">${summary?.query_attempts || 0}</h6>
+                        <small class="text-muted">Query Attempts</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <h6 class="mb-3">Recent Activity</h6>
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-sm table-hover">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th>Time</th>
+                        <th>Activity</th>
+                        <th>Details</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    activities.forEach(activity => {
+        const timestamp = new Date(activity.timestamp).toLocaleString();
+        const activityIcon = getActivityIcon(activity.activity_type);
+        const activityClass = getActivityClass(activity.activity_type, activity.success);
+        const duration = activity.execution_time_ms ? `${activity.execution_time_ms}ms` : '-';
+        
+        html += `
+            <tr class="${activityClass}">
+                <td><small>${timestamp}</small></td>
+                <td>
+                    <span class="badge bg-secondary me-1">${activityIcon}</span>
+                    <small>${activity.activity_type.replace('_', ' ')}</small>
+                </td>
+                <td>
+                    <small>${activity.details || '-'}</small>
+                    ${activity.query_text ? `<br><code style="font-size: 0.7em;">${activity.query_text.substring(0, 100)}${activity.query_text.length > 100 ? '...' : ''}</code>` : ''}
+                    ${activity.error_message ? `<br><small class="text-danger">Error: ${activity.error_message}</small>` : ''}
+                </td>
+                <td><small>${duration}</small></td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+function getActivityIcon(activityType) {
+    const icons = {
+        'query_executed': '🔍',
+        'page_access': '📄', 
+        'candidate_login': '🔑',
+        'candidate_logout': '🚪',
+        'impersonation_started': '👤',
+        'impersonation_ended': '❌',
+        'impersonated_page_access': '🔍👤'
+    };
+    return icons[activityType] || '📝';
+}
+
+function getActivityClass(activityType, success) {
+    if (activityType === 'query_executed' && success === false) {
+        return 'table-warning';
+    }
+    if (activityType.includes('impersonation')) {
+        return 'table-info';
+    }
+    return '';
 }
 
 function refreshInvitations() {

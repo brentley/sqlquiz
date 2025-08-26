@@ -193,9 +193,10 @@ def get_all_candidate_invitations():
     conn = get_user_db_connection()
     try:
         invitations = conn.execute('''
-            SELECT ci.*, u.username as created_by_name
+            SELECT ci.*, u_creator.username as created_by_name, u_target.id as target_user_id
             FROM candidate_invitations ci
-            JOIN users u ON ci.created_by = u.id
+            JOIN users u_creator ON ci.created_by = u_creator.id
+            LEFT JOIN users u_target ON ci.email = u_target.email
             ORDER BY ci.created_at DESC
         ''').fetchall()
         

@@ -526,9 +526,14 @@ def api_execute():
     )
     
     # Enhanced candidate activity logging - capture ALL queries including syntax errors
+    candidate_user_id = session.get('candidate_user_id')
+    invitation_token = session.get('invitation_token')
+    
+    print(f"DEBUG - Query execution logging: user_id={candidate_user_id}, invitation_token={invitation_token}, query={query[:50]}...")
+    
     log_candidate_activity(
-        user_id=session.get('candidate_user_id'),
-        invitation_token=session.get('invitation_token'),
+        user_id=candidate_user_id,
+        invitation_token=invitation_token,
         activity_type='query_executed',
         details=f"Query executed: {'SUCCESS' if success else 'FAILED'} | Rows: {page_count if success else 0} | Page: {page}",
         query_text=query,

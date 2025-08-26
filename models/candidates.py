@@ -169,9 +169,15 @@ def log_candidate_activity(user_id=None, invitation_token=None, activity_type=No
                          success=None, error_message=None, ip_address=None, 
                          user_agent=None, page_url=None, session_duration_ms=None):
     """Log comprehensive candidate activity"""
+    print(f"DEBUG - log_candidate_activity called: user_id={user_id}, activity_type={activity_type}, details={details}")
+    
+    if not user_id:
+        print("WARNING - log_candidate_activity: user_id is None, skipping logging")
+        return
+    
     conn = get_user_db_connection()
     try:
-        conn.execute('''
+        cursor = conn.execute('''
             INSERT INTO candidate_activity_log 
             (user_id, invitation_token, activity_type, details, query_text, 
              execution_time_ms, success, error_message, ip_address, user_agent, 
@@ -181,8 +187,9 @@ def log_candidate_activity(user_id=None, invitation_token=None, activity_type=No
               execution_time_ms, success, error_message, ip_address, user_agent,
               page_url, session_duration_ms))
         conn.commit()
+        print(f"DEBUG - Successfully logged activity for user {user_id}, row_id={cursor.lastrowid}")
     except Exception as e:
-        print(f"Error logging candidate activity: {e}")
+        print(f"ERROR - Failed to log candidate activity: {e}")
         conn.rollback()
     finally:
         conn.close()

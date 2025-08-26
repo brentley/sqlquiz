@@ -446,7 +446,7 @@ def admin_candidate_invitations():
 
 # Schema reference page
 @app.route('/schema')
-@require_login
+@require_candidate_auth
 def schema():
     """Schema reference page"""
     return render_template('schema.html')
@@ -454,14 +454,14 @@ def schema():
 
 # API Routes - Data Management
 @app.route('/api/schema')
-@require_login
+@require_candidate_auth
 def api_schema():
     """Get database schema"""
     return jsonify(get_database_schema())
 
 
 @app.route('/api/tables')
-@require_login
+@require_candidate_auth
 def api_tables():
     """Get list of tables"""
     return jsonify(get_table_names())
@@ -530,14 +530,14 @@ def api_execute():
 
 
 @app.route('/api/sample-queries')
-@require_login
+@require_candidate_auth
 def api_sample_queries():
     """Get intelligent sample queries"""
     return jsonify(generate_sample_queries())
 
 
 @app.route('/api/sample-data/<table_name>')
-@require_login
+@require_candidate_auth
 def api_sample_data(table_name):
     """Get sample data from a table"""
     return jsonify(get_sample_data(table_name))
@@ -661,7 +661,7 @@ def api_challenge_attempt(challenge_id):
 
 
 @app.route('/api/user/progress')
-@require_login
+@require_candidate_auth
 def api_user_progress():
     """Get user progress"""
     return jsonify(get_user_progress(session.get('user_id')))

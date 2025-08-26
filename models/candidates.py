@@ -127,14 +127,6 @@ def authenticate_candidate(token):
             VALUES (?, ?, ?, ?, 0, 1)
         ''', (user_id, session_token, request.remote_addr, request.headers.get('User-Agent')))
         
-        # Mark invitation as used if not already
-        if not invitation['is_used']:
-            conn.execute('''
-                UPDATE candidate_invitations 
-                SET is_used = 1, used_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            ''', (invitation['id'],))
-        
         # Log candidate login activity
         log_candidate_activity(
             user_id=user_id,
@@ -147,6 +139,15 @@ def authenticate_candidate(token):
         )
         
         conn.commit()
+        
+        # Mark invitation as used only AFTER successful authentication and session creation
+        if not invitation['is_used']:
+            conn.execute('''
+                UPDATE candidate_invitations 
+                SET is_used = 1, used_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (invitation['id'],))
+            conn.commit()
         
         return {
             'success': True,

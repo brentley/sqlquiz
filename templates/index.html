@@ -17,7 +17,7 @@
 
         <!-- Features -->
         <div class="row mb-5">
-            <div class="col-md-4 mb-4">
+            <div class="{% if session.admin_user %}col-md-4{% else %}col-md-6 mx-auto{% endif %} mb-4">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body text-center p-4">
                         <div class="mb-3">
@@ -34,6 +34,7 @@
                     </div>
                 </div>
             </div>
+            {% if session.admin_user %}
             <div class="col-md-4 mb-4">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body text-center p-4">
@@ -51,6 +52,8 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
+            {% if session.admin_user %}
             <div class="col-md-4 mb-4">
                 <div class="card border-0 shadow-sm h-100">
                     <div class="card-body text-center p-4">
@@ -68,6 +71,7 @@
                     </div>
                 </div>
             </div>
+            {% endif %}
         </div>
 
         <!-- Database Overview -->

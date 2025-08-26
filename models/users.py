@@ -6,7 +6,8 @@ Handles user authentication, session management, and activity tracking.
 import hashlib
 import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+from utils.timezone import utc_now, format_for_display
 from models.database import get_user_db_connection
 
 
@@ -379,7 +380,7 @@ def export_candidate_report(username):
         # Generate assessment report
         report = {
             'candidate': username,
-            'assessment_date': datetime.now().isoformat(),
+            'assessment_date': utc_now().isoformat(),
             'challenges': [],
             'summary': {}
         }

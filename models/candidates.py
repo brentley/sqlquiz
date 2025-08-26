@@ -6,8 +6,9 @@ Handles unique URL generation, candidate authentication, and comprehensive activ
 import sqlite3
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from models.database import get_user_db_connection
+from utils.timezone import utc_now, format_for_display
 from flask import request, session
 
 
@@ -28,8 +29,8 @@ def create_candidate_invitation(email, candidate_name, created_by_user_id, expir
         while conn.execute("SELECT id FROM candidate_invitations WHERE invitation_token = ?", (token,)).fetchone():
             token = generate_invitation_token()
         
-        # Set expiration date
-        expires_at = datetime.now() + timedelta(days=expires_days) if expires_days else None
+        # Set expiration date (UTC)
+        expires_at = utc_now() + timedelta(days=expires_days) if expires_days else None
         
         # Create invitation
         cursor = conn.execute('''
@@ -70,7 +71,10 @@ def validate_invitation_token(token):
         # Check if expired
         if invitation['expires_at']:
             expires_at = datetime.fromisoformat(invitation['expires_at'])
-            if datetime.now() > expires_at:
+            # Ensure expires_at is timezone-aware (UTC)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if utc_now() > expires_at:
                 return {'valid': False, 'error': 'Invitation has expired'}
         
         return {

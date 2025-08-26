@@ -215,8 +215,8 @@ function displayInvitations(invitations) {
     html += '<thead><tr><th>Candidate</th><th>Email</th><th>Created</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead><tbody>';
     
     invitations.forEach(invitation => {
-        const createdAt = new Date(invitation.created_at).toLocaleDateString();
-        const expiresAt = invitation.expires_at ? new Date(invitation.expires_at).toLocaleDateString() : 'Never';
+        const createdAt = invitation.created_at;
+        const expiresAt = invitation.expires_at || null;
         const isExpired = invitation.expires_at && new Date(invitation.expires_at) < new Date();
         const statusClass = invitation.is_used ? 'success' : (isExpired ? 'danger' : (invitation.is_active ? 'primary' : 'secondary'));
         const statusText = invitation.is_used ? 'Used' : (isExpired ? 'Expired' : (invitation.is_active ? 'Active' : 'Inactive'));
@@ -228,8 +228,12 @@ function displayInvitations(invitations) {
                     <br><small class="text-muted">Created by: ${invitation.created_by_name}</small>
                 </td>
                 <td>${invitation.email}</td>
-                <td><small>${createdAt}</small></td>
-                <td><small>${expiresAt}</small></td>
+                <td>
+                    <small data-utc-time="${createdAt}" data-time-format="absolute" data-hide-timezone></small>
+                </td>
+                <td>
+                    ${expiresAt ? `<small data-utc-time="${expiresAt}" data-time-format="absolute" data-hide-timezone></small>` : '<small>Never</small>'}
+                </td>
                 <td><span class="badge bg-${statusClass}">${statusText}</span></td>
                 <td>
                     <div class="btn-group btn-group-sm" role="group">
@@ -252,6 +256,11 @@ function displayInvitations(invitations) {
     
     html += '</tbody></table></div>';
     container.innerHTML = html;
+    
+    // Re-initialize timezone conversion for dynamically added content
+    if (window.TimezonUtils) {
+        window.TimezonUtils.initTimezoneConversion();
+    }
 }
 
 function showCreateInvitationModal() {
@@ -467,14 +476,14 @@ function displayCandidateActivity(activities, summary) {
     `;
     
     activities.forEach(activity => {
-        const timestamp = new Date(activity.timestamp).toLocaleString();
+        const timestamp = activity.timestamp;
         const activityIcon = getActivityIcon(activity.activity_type);
         const activityClass = getActivityClass(activity.activity_type, activity.success);
         const duration = activity.execution_time_ms ? `${activity.execution_time_ms}ms` : '-';
         
         html += `
             <tr class="${activityClass}">
-                <td><small>${timestamp}</small></td>
+                <td><small data-utc-time="${timestamp}" data-time-format="absolute" data-show-seconds></small></td>
                 <td>
                     <span class="badge bg-secondary me-1">${activityIcon}</span>
                     <small>${activity.activity_type.replace('_', ' ')}</small>
@@ -491,6 +500,11 @@ function displayCandidateActivity(activities, summary) {
     
     html += '</tbody></table></div>';
     container.innerHTML = html;
+    
+    // Re-initialize timezone conversion for dynamically added content
+    if (window.TimezonUtils) {
+        window.TimezonUtils.initTimezoneConversion();
+    }
 }
 
 function getActivityIcon(activityType) {

@@ -273,7 +273,7 @@ function displayActivityHistory(activities) {
     `;
     
     activities.forEach((activity, index) => {
-        const timestamp = new Date(activity.timestamp).toLocaleString();
+        const timestamp = activity.timestamp;
         const activityTypeIcons = {
             'query_executed': 'fas fa-play-circle',
             'candidate_login': 'fas fa-sign-in-alt',
@@ -318,7 +318,7 @@ function displayActivityHistory(activities) {
         html += `
             <tr>
                 <td>
-                    <small>${timestamp}</small>
+                    <small data-utc-time="${timestamp}" data-time-format="absolute" data-show-seconds></small>
                 </td>
                 <td>
                     ${thinkTime}
@@ -361,6 +361,11 @@ function displayActivityHistory(activities) {
     
     html += '</tbody></table></div>';
     container.innerHTML = html;
+    
+    // Re-initialize timezone conversion for dynamically added content
+    if (window.TimezonUtils) {
+        window.TimezonUtils.initTimezoneConversion();
+    }
 }
 
 function toggleActivityDetails() {

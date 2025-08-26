@@ -546,3 +546,49 @@ footer {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Challenge Details Formatting */
+.challenge-details {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.challenge-details .detail-row {
+    margin-bottom: 1rem;
+    padding: 0.5rem 0;
+}
+
+.challenge-details .detail-row:not(:last-child) {
+    border-bottom: 1px solid #e9ecef;
+}
+
+.challenge-details .detail-row strong {
+    color: #495057;
+    font-weight: 600;
+    display: inline-block;
+    min-width: 120px;
+    margin-bottom: 0.25rem;
+}
+
+.challenge-details ul {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.5rem;
+}
+
+.challenge-details ul li {
+    margin-bottom: 0.25rem;
+    color: #6c757d;
+}
+
+.challenge-details .payor-list {
+    columns: 2;
+    column-gap: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.challenge-details .payor-list li {
+    break-inside: avoid;
+    color: #495057;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+}

@@ -97,11 +97,12 @@ The application will be available at: http://localhost:5002
 - **Query performance monitoring** - Execution time tracking with 60-second timeout
 
 ### 🏥 **Analysis Evaluation Mode** (Candidate Assessment)
-- **8 healthcare data integrity scenarios** - VisiQuate evaluation challenges
+- **10 healthcare data integrity scenarios** - VisiQuate evaluation challenges with professional formatting
 - **Data validation focus** - Account balance, payment reconciliation, crosswalk integrity
 - **Approach evaluation** - Analytical thinking assessment rather than SQL proficiency testing
 - **Complete activity tracking** - Every query, error, and navigation event captured
 - **Think time measurement** - Time between activities shows analytical process
+- **UTC timezone handling** - All timestamps stored in UTC, displayed in user's local time
 
 ### 👨‍💼 **Admin Dashboard**
 - **Candidate invitation management** - Generate secure time-limited assessment URLs
@@ -132,7 +133,8 @@ data-explorer/
 ├── utils/                    # Utility functions and helpers
 │   ├── __init__.py          # Package initialization
 │   ├── data_processing.py   # CSV processing and schema detection
-│   └── query_validation.py  # SQL security and validation
+│   ├── query_validation.py  # SQL security and validation
+│   └── timezone.py          # UTC timestamp utilities and browser timezone handling
 ├── templates/
 │   ├── base.html             # Base layout with activity tracking
 │   ├── index.html            # Candidate landing page (invitation-only)
@@ -145,8 +147,11 @@ data-explorer/
 │       ├── candidate_detail.html # Detailed assessment view
 │       └── candidate_invitations.html # Invitation URL management
 ├── static/
-│   ├── css/style.css         # Custom styles
-│   └── js/app.js            # JavaScript utilities
+│   ├── css/style.css         # Custom styles with challenge formatting
+│   ├── js/
+│   │   ├── app.js           # JavaScript utilities
+│   │   └── timezone.js      # Browser timezone conversion utilities
+│   └── ...
 └── deploy/                   # Docker deployment configs
 ```
 
@@ -299,11 +304,18 @@ WHERE c.txn_sub_type_code IS NULL;
 
 ## 🎯 Recent Updates
 
+### **v3.1.0 - Enhanced Timezone & Admin Experience** 🔄
+- **UTC Timezone Handling** - All timestamps stored in UTC, displayed in user's browser timezone
+- **Enhanced Challenge Formatting** - Professional HTML presentation with clear section labels
+- **Admin Session Improvements** - Fixed 500 errors, enhanced impersonation and candidate detail access
+- **Browser Timezone Display** - Automatic conversion of UTC times to local timezone preferences
+- **Professional Assessment Layout** - Clear separation of Data Set, Scenario, Rule/Constraint, and Task sections
+
 ### **v3.0.0 - VisiQuate Healthcare Evaluation Platform** 🏥
 - **Secure Candidate Invitation System** - Time-limited unique URLs with usage tracking and admin impersonation
 - **Comprehensive Activity Tracking** - Every query, error, navigation event with think time analysis
 - **Tab Switching Detection** - Monitor when candidates navigate away (potential external consultation)
-- **VisiQuate Healthcare Scenarios** - 8 real-world data integrity evaluation challenges
+- **VisiQuate Healthcare Scenarios** - 10 real-world data integrity evaluation challenges
 - **Professional Assessment Interface** - Focus on analytical approach over SQL proficiency
 - **Admin Activity Dashboard** - Complete candidate timeline with query history and performance analytics
 
@@ -368,6 +380,13 @@ docker compose ps
 - **UTF-8 BOM cleaning** prevents hidden character issues
 - **Container security** with non-root user execution
 
+### **Timezone & Data Display**
+- **UTC Storage**: All timestamps stored consistently in UTC using `utils/timezone.py`
+- **Browser Display**: Automatic conversion to user's local timezone via `static/js/timezone.js`
+- **Activity Tracking**: Precise timing with timezone-aware calculations
+- **Professional Timestamps**: Clear date/time formatting with timezone indicators
+- **Think Time Accuracy**: UTC-based calculations ensure accurate time measurements across timezones
+
 ### **Browser Compatibility**
 - **Modern Browsers**: Chrome, Firefox, Safari, Edge (latest versions)
 - **Mobile Support**: Touch-friendly responsive design
@@ -378,6 +397,8 @@ docker compose ps
 
 ### **For VisiQuate Interviewers**
 1. **Admin Setup**: Login with authorized email (brent.langston@visiquate.com, peyton.meroney@visiquate.com, jean-claire.chamian@visiquate.com)
+   - All admins have full access to impersonation and candidate detail functions
+   - Enhanced error handling prevents 500 errors during admin operations
 2. **Create Invitation**: Generate secure candidate URL with expiration date via Admin Dashboard → Candidate Invitations
 3. **Send to Candidate**: Provide unique assessment URL (expires automatically to prevent sharing)
 4. **Real-time Monitoring**: Watch candidate progress, query attempts, and think times through admin dashboard
@@ -442,6 +463,9 @@ Key areas for enhancement:
 - [ ] **Mobile App**: Native mobile assessment experience
 
 ### **Technical Improvements**
+- [x] **UTC Timezone System**: All timestamps stored in UTC with browser-local display ✅
+- [x] **Enhanced Admin Access**: Fixed 500 errors for impersonation and candidate details ✅
+- [x] **Challenge Formatting**: Professional HTML presentation with clear section labels ✅
 - [x] **Database Optimization**: CSV processing performance enhancements ✅
 - [x] **Authentication System**: Resilient authentication with graceful degradation ✅
 - [x] **Schema Migration**: Robust database schema updates ✅

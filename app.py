@@ -324,6 +324,7 @@ def admin_simple_login():
         
         # Store in session
         session['admin_session_token'] = session_token
+        session['login_time'] = utc_timestamp()  # Add login time for admin sessions
         session['admin_user'] = {
             'id': user_id,
             'email': email,
@@ -395,6 +396,7 @@ def admin_auth_callback():
         
         # Store in session
         session['admin_session_token'] = session_token
+        session['login_time'] = utc_timestamp()  # Add login time for admin sessions
         session['admin_user'] = {
             'id': user_id,
             'email': email,

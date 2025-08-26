@@ -94,7 +94,11 @@
                             <li><span class="dropdown-item-text">
                                 <small class="text-muted">
                                     <i class="fas fa-clock me-1"></i>
-                                    Online: {{ "%.1f"|format((time.time() - session.login_time) / 60) }} min
+                                    {% if session.login_time %}
+                                        Online: {{ "%.1f"|format((time.time() - session.login_time) / 60) }} min
+                                    {% else %}
+                                        Session Active
+                                    {% endif %}
                                 </small>
                             </span></li>
                             <li><hr class="dropdown-divider"></li>

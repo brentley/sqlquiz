@@ -1024,6 +1024,39 @@ def api_admin_end_impersonation():
         return jsonify(result), 400
 
 
+@app.route('/api/log-activity', methods=['POST'])
+def api_log_activity():
+    """Log candidate activity (page visibility changes, etc.)"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Get candidate session info
+        candidate_user_id = session.get('user_id')
+        invitation_token = session.get('invitation_token')
+        
+        if not candidate_user_id:
+            return jsonify({'error': 'No active candidate session'}), 401
+        
+        # Log the activity
+        log_candidate_activity(
+            user_id=candidate_user_id,
+            invitation_token=invitation_token,
+            activity_type=data.get('activity_type', 'unknown_activity'),
+            details=data.get('details', ''),
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent'),
+            page_url=data.get('page_url', request.url)
+        )
+        
+        return jsonify({'success': True})
+    
+    except Exception as e:
+        print(f"Error logging activity: {e}")
+        return jsonify({'error': 'Failed to log activity'}), 500
+
+
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):

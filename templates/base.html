@@ -193,6 +193,49 @@
             alert('Error ending impersonation. Please try again.');
         });
     }
+    
+    // Page Visibility Tracking for Candidates
+    if (!window.location.href.includes('/admin/') && window.location.href.includes('candidate/')) {
+        let pageHiddenTime = null;
+        
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // Page became hidden (user switched tabs/minimized)
+                pageHiddenTime = Date.now();
+                logCandidateVisibility('page_hidden', 'Candidate navigated away from the assessment page');
+            } else {
+                // Page became visible (user returned)
+                const awayDuration = pageHiddenTime ? Date.now() - pageHiddenTime : 0;
+                const details = awayDuration > 0 ? 
+                    `Candidate returned after ${Math.round(awayDuration / 1000)}s away` : 
+                    'Candidate returned to assessment page';
+                logCandidateVisibility('page_visible', details);
+                pageHiddenTime = null;
+            }
+        });
+        
+        // Also track when user tries to navigate away
+        window.addEventListener('beforeunload', function() {
+            logCandidateVisibility('page_unload', 'Candidate attempting to leave the page');
+        });
+        
+        function logCandidateVisibility(activityType, details) {
+            fetch('/api/log-activity', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    activity_type: activityType,
+                    details: details,
+                    page_url: window.location.href
+                }),
+                keepalive: true  // Ensures request completes even during page unload
+            }).catch(error => {
+                console.log('Activity logging failed:', error);
+            });
+        }
+    }
     </script>
     
     {% block scripts %}{% endblock %}

@@ -262,6 +262,7 @@ function displayActivityHistory(activities) {
                 <thead>
                     <tr>
                         <th>Timestamp</th>
+                        <th>Think Time</th>
                         <th>Activity</th>
                         <th>Status</th>
                         <th>Performance</th>
@@ -277,6 +278,8 @@ function displayActivityHistory(activities) {
             'query_executed': 'fas fa-play-circle',
             'candidate_login': 'fas fa-sign-in-alt',
             'page_view': 'fas fa-eye',
+            'page_hidden': 'fas fa-eye-slash text-warning',
+            'page_visible': 'fas fa-eye text-success',
             'impersonation_started': 'fas fa-user-secret',
             'impersonation_ended': 'fas fa-user-times'
         };
@@ -290,10 +293,35 @@ function displayActivityHistory(activities) {
         
         const hasQuery = activity.query_text && activity.query_text.trim();
         
+        // Calculate think time (time since previous activity)
+        let thinkTime = '';
+        if (index < activities.length - 1) {
+            const currentTime = new Date(activity.timestamp);
+            const previousTime = new Date(activities[index + 1].timestamp);
+            const diffMs = currentTime - previousTime;
+            
+            if (diffMs > 0) {
+                if (diffMs < 60000) { // Less than 1 minute
+                    thinkTime = `<small class="text-muted">${Math.round(diffMs / 1000)}s</small>`;
+                } else if (diffMs < 3600000) { // Less than 1 hour
+                    thinkTime = `<small class="text-primary">${Math.round(diffMs / 60000)}m ${Math.round((diffMs % 60000) / 1000)}s</small>`;
+                } else { // More than 1 hour
+                    const hours = Math.floor(diffMs / 3600000);
+                    const minutes = Math.floor((diffMs % 3600000) / 60000);
+                    thinkTime = `<small class="text-warning">${hours}h ${minutes}m</small>`;
+                }
+            }
+        } else {
+            thinkTime = '<small class="text-muted">First activity</small>';
+        }
+        
         html += `
             <tr>
                 <td>
                     <small>${timestamp}</small>
+                </td>
+                <td>
+                    ${thinkTime}
                 </td>
                 <td>
                     <div>

@@ -54,29 +54,30 @@
             </div>
         </div>
 
-        <!-- Attempt History -->
-        <div class="card border-0 shadow-sm">
+        <!-- Activity History -->
+        <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-light d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">
-                    <i class="fas fa-history me-2"></i>Query Attempt History
+                    <i class="fas fa-history me-2"></i>Query History & Activity Log
                 </h5>
                 <div>
-                    <button class="btn btn-sm btn-outline-primary" onclick="toggleQueryDetails()">
+                    <button class="btn btn-sm btn-outline-primary" onclick="toggleActivityDetails()">
                         <i class="fas fa-code me-1"></i>Show/Hide Queries
                     </button>
                 </div>
             </div>
             <div class="card-body">
-                <div id="attemptHistory">
+                <div id="activityHistory">
                     <div class="text-center">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
-                        <p class="mt-2 text-muted">Loading attempt history...</p>
+                        <p class="mt-2 text-muted">Loading activity history...</p>
                     </div>
                 </div>
             </div>
         </div>
+
     </div>
 </div>
 {% endblock %}
@@ -99,7 +100,7 @@ function loadCandidateDetail() {
             candidateData = data;
             displaySummary(data.summary);
             displayChallengeProgress(data.challenge_progress);
-            displayAttemptHistory(data.attempt_history);
+            displayActivityHistory(data.activity_history);
         })
         .catch(error => {
             console.error('Error loading candidate details:', error);
@@ -137,8 +138,8 @@ function displaySummary(summary) {
             <div class="col-md-3">
                 <div class="card border-0 bg-warning text-white">
                     <div class="card-body text-center">
-                        <h3 class="mb-1">${summary.total_attempts}</h3>
-                        <small>Total Attempts</small>
+                        <h3 class="mb-1">${summary.query_executions || 0}</h3>
+                        <small>Query Executions</small>
                         <div class="mt-2">
                             <small>${summary.avg_execution_time}ms avg time</small>
                         </div>
@@ -148,10 +149,10 @@ function displaySummary(summary) {
             <div class="col-md-3">
                 <div class="card border-0 bg-info text-white">
                     <div class="card-body text-center">
-                        <h3 class="mb-1">${summary.total_hints_used}</h3>
-                        <small>Hints Used</small>
+                        <h3 class="mb-1">${summary.query_success_rate || 0}%</h3>
+                        <small>Query Success Rate</small>
                         <div class="mt-2">
-                            <small>Help-seeking behavior</small>
+                            <small>${summary.successful_queries || 0}/${summary.query_executions || 0} successful</small>
                         </div>
                     </div>
                 </div>
@@ -247,11 +248,11 @@ function displayChallengeProgress(challenges) {
     container.innerHTML = html;
 }
 
-function displayAttemptHistory(attempts) {
-    const container = document.getElementById('attemptHistory');
+function displayActivityHistory(activities) {
+    const container = document.getElementById('activityHistory');
     
-    if (attempts.length === 0) {
-        container.innerHTML = '<p class="text-muted text-center">No attempt history available</p>';
+    if (!activities || activities.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">No activity history available</p>';
         return;
     }
     
@@ -261,23 +262,33 @@ function displayAttemptHistory(attempts) {
                 <thead>
                     <tr>
                         <th>Timestamp</th>
-                        <th>Challenge</th>
-                        <th>Result</th>
+                        <th>Activity</th>
+                        <th>Status</th>
                         <th>Performance</th>
-                        <th>Query</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
     
-    attempts.forEach((attempt, index) => {
-        const timestamp = new Date(attempt.created_at).toLocaleString();
-        const resultIcon = attempt.is_correct ? 
-            '<i class="fas fa-check-circle text-success"></i>' : 
-            '<i class="fas fa-times-circle text-danger"></i>';
+    activities.forEach((activity, index) => {
+        const timestamp = new Date(activity.timestamp).toLocaleString();
+        const activityTypeIcons = {
+            'query_executed': 'fas fa-play-circle',
+            'candidate_login': 'fas fa-sign-in-alt',
+            'page_view': 'fas fa-eye',
+            'impersonation_started': 'fas fa-user-secret',
+            'impersonation_ended': 'fas fa-user-times'
+        };
+        const icon = activityTypeIcons[activity.activity_type] || 'fas fa-circle';
         
-        const levelColors = {1: 'success', 2: 'warning', 3: 'danger', 4: 'dark'};
-        const levelColor = levelColors[attempt.difficulty_level] || 'primary';
+        const statusIcon = activity.success === 1 ? 
+            '<i class="fas fa-check-circle text-success"></i>' : 
+            activity.success === 0 ? 
+            '<i class="fas fa-times-circle text-danger"></i>' : 
+            '<i class="fas fa-info-circle text-info"></i>';
+        
+        const hasQuery = activity.query_text && activity.query_text.trim();
         
         html += `
             <tr>
@@ -286,39 +297,34 @@ function displayAttemptHistory(attempts) {
                 </td>
                 <td>
                     <div>
-                        ${attempt.challenge_title}
-                        <br><span class="badge bg-${levelColor}">Level ${attempt.difficulty_level}</span>
+                        <i class="${icon} me-2"></i>
+                        ${activity.activity_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </div>
+                </td>
+                <td>
+                    ${statusIcon}
+                    ${activity.error_message ? `<br><small class="text-danger">${activity.error_message}</small>` : ''}
+                </td>
+                <td>
+                    ${activity.execution_time_ms ? `<small class="text-muted">${Math.round(activity.execution_time_ms)}ms</small>` : ''}
                 </td>
                 <td>
                     <div>
-                        ${resultIcon} 
-                        <strong>${attempt.score || 0} pts</strong>
-                        <br><small class="text-muted">
-                            ${attempt.result_count || 0} rows returned
-                            ${attempt.expected_result_count ? ` (expected ~${attempt.expected_result_count})` : ''}
-                        </small>
-                    </div>
-                </td>
-                <td>
-                    <div>
-                        <small class="text-muted">
-                            ${Math.round(attempt.execution_time_ms || 0)}ms
-                            ${attempt.hints_used > 0 ? `<br>${attempt.hints_used} hints used` : ''}
-                        </small>
-                    </div>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-outline-info" 
-                            type="button" 
-                            data-bs-toggle="collapse" 
-                            data-bs-target="#query-${index}">
-                        <i class="fas fa-code me-1"></i>View Query
-                    </button>
-                    <div class="collapse mt-2" id="query-${index}">
-                        <div class="card card-body bg-light">
-                            <pre class="mb-0" style="font-size: 0.8rem;"><code>${attempt.query_text}</code></pre>
-                        </div>
+                        ${activity.details ? `<small>${activity.details}</small>` : ''}
+                        ${hasQuery ? `
+                            <br>
+                            <button class="btn btn-sm btn-outline-info mt-1" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#activity-query-${index}">
+                                <i class="fas fa-code me-1"></i>View Query
+                            </button>
+                            <div class="collapse mt-2" id="activity-query-${index}">
+                                <div class="card card-body bg-light">
+                                    <pre class="mb-0" style="font-size: 0.8rem;"><code>${activity.query_text}</code></pre>
+                                </div>
+                            </div>
+                        ` : ''}
                     </div>
                 </td>
             </tr>
@@ -329,9 +335,9 @@ function displayAttemptHistory(attempts) {
     container.innerHTML = html;
 }
 
-function toggleQueryDetails() {
+function toggleActivityDetails() {
     showQueries = !showQueries;
-    const collapses = document.querySelectorAll('[id^="query-"]');
+    const collapses = document.querySelectorAll('[id^="activity-query-"]');
     
     collapses.forEach(collapse => {
         if (showQueries) {

@@ -170,7 +170,7 @@ def get_all_candidates():
     conn = get_user_db_connection()
     try:
         candidates = conn.execute('''
-            SELECT DISTINCT u.username, u.created_at as registration_date,
+            SELECT DISTINCT u.id, u.username, u.email, u.created_at as registration_date,
                    COUNT(DISTINCT ca.challenge_id) as challenges_attempted,
                    COUNT(DISTINCT CASE WHEN ca.is_correct = 1 THEN ca.challenge_id END) as challenges_completed,
                    MAX(ca.score) as best_score,
@@ -178,11 +178,14 @@ def get_all_candidates():
                    COUNT(ca.id) as total_attempts,
                    AVG(ca.execution_time_ms) as avg_execution_time,
                    SUM(ca.hints_used) as total_hints_used,
-                   MAX(ca.created_at) as last_activity
+                   MAX(COALESCE(cal.timestamp, ca.created_at)) as last_activity,
+                   COUNT(cal.id) as total_activity_events,
+                   COUNT(CASE WHEN cal.activity_type = 'query_executed' THEN 1 END) as query_attempts
             FROM users u
             LEFT JOIN challenge_attempts ca ON u.id = ca.user_id
-            WHERE u.username != 'admin'
-            GROUP BY u.id, u.username, u.created_at
+            LEFT JOIN candidate_activity_log cal ON u.id = cal.user_id
+            WHERE u.username != 'admin' AND u.is_admin != 1
+            GROUP BY u.id, u.username, u.email, u.created_at
             ORDER BY last_activity DESC NULLS LAST
         ''').fetchall()
         
@@ -256,16 +259,31 @@ def get_candidate_detail(username):
             ORDER BY ca.created_at DESC
         ''', (user_id,)).fetchall()
         
+        # Get candidate activity log (new system)
+        activity_history = conn.execute('''
+            SELECT id, activity_type, details, query_text, execution_time_ms,
+                   success, error_message, timestamp, ip_address
+            FROM candidate_activity_log
+            WHERE user_id = ?
+            ORDER BY timestamp DESC
+            LIMIT 100
+        ''', (user_id,)).fetchall()
+        
         # Calculate overall statistics
         total_challenges = len([p for p in challenge_progress if p['attempts'] > 0])
         completed_challenges = len([p for p in challenge_progress if p['completed']])
         total_score = sum(p['best_score'] or 0 for p in challenge_progress)
         max_possible_score = sum(p['max_score'] for p in challenge_progress)
         
+        # Calculate activity statistics
+        query_activities = [a for a in activity_history if a['activity_type'] == 'query_executed']
+        successful_queries = [a for a in query_activities if a['success']]
+        
         return {
             'username': username,
             'challenge_progress': [dict(p) for p in challenge_progress],
             'attempt_history': [dict(a) for a in attempt_history],
+            'activity_history': [dict(a) for a in activity_history],  # NEW: Include activity log
             'summary': {
                 'total_challenges_attempted': total_challenges,
                 'completed_challenges': completed_challenges,
@@ -275,7 +293,12 @@ def get_candidate_detail(username):
                 'score_percentage': round(total_score / max_possible_score * 100, 1) if max_possible_score > 0 else 0,
                 'total_attempts': len(attempt_history),
                 'avg_execution_time': round(sum(a['execution_time_ms'] for a in attempt_history) / len(attempt_history), 1) if attempt_history else 0,
-                'total_hints_used': sum(a['hints_used'] for a in attempt_history)
+                'total_hints_used': sum(a['hints_used'] for a in attempt_history),
+                # NEW: Activity-based statistics
+                'total_activities': len(activity_history),
+                'query_executions': len(query_activities),
+                'successful_queries': len(successful_queries),
+                'query_success_rate': round(len(successful_queries) / len(query_activities) * 100, 1) if query_activities else 0
             }
         }
     finally:

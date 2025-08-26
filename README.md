@@ -1,47 +1,54 @@
-# Data Explorer - Advanced SQL Skills Assessment Platform
+# Data Explorer - VisiQuate Healthcare Analysis Assessment Platform
 
-A comprehensive web-based SQL skills assessment and training platform designed for technical interviews, candidate evaluation, and data analysis training. Features dynamic CSV data import, progressive challenge modes, and comprehensive admin analytics.
+A comprehensive web-based healthcare data analysis assessment platform designed for evaluating analytical thinking and problem-solving approaches. Features secure candidate invitation system, comprehensive activity tracking, and professional evaluation scenarios based on real-world healthcare data integrity challenges.
 
 ## 🎯 Purpose & Use Cases
 
 **Perfect for:**
-- **Technical Interviews** - Assess SQL skills with real-world data scenarios
-- **Candidate Evaluation** - Progressive challenge system with detailed tracking
-- **Training Programs** - Learn SQL with dynamic data exploration
-- **Skill Assessment** - Evaluate proficiency from basic queries to advanced analytics
-- **Data Science Interviews** - Test data analysis and problem-solving skills
+- **Healthcare Data Analysis Assessment** - Evaluate analytical thinking with real-world data integrity scenarios
+- **Professional Candidate Evaluation** - Secure invitation-based assessment system with comprehensive tracking
+- **Data Analysis Interview Process** - Focus on problem-solving approach rather than SQL proficiency
+- **Business Intelligence Evaluation** - Test data validation, reconciliation, and pattern analysis skills
+- **Healthcare Data Consulting** - Assess experience with accounts receivable, claims processing, and payor analysis
 
 ## 🌟 Key Features
 
-### 🔄 **Dynamic Data Import**
-- **Upload any CSV data** - Transform CSV files into interactive SQL databases
-- **ZIP file support** - Upload multiple CSV files at once
-- **Automatic schema detection** - Intelligent column type inference with duplicate column handling
-- **UTF-8 BOM handling** - Clean data import from various sources
-- **High-performance processing** - Optimized for large datasets (150K+ rows)
-- **Smart query generation** - Automatic sample queries based on your data with relationship detection
+### 🔐 **Secure Candidate Invitation System**
+- **Unique URL Generation** - Create secure, time-limited candidate assessment links
+- **Email-Based Invitations** - Professional invitation management with expiration tracking
+- **Usage Monitoring** - Track when links are accessed and prevent unauthorized sharing
+- **Admin Impersonation** - Admin can view assessment as candidates with full audit trail
+- **Access Control** - Remove public access, candidates only access via secure invitation URLs
 
-### 🏆 **Challenge Mode Assessment System**
-- **Progressive difficulty levels** - Basic → Intermediate → Advanced → Expert
-- **Real-time scoring** - Performance-based evaluation with efficiency bonuses
-- **Hint system** - Progressive disclosure with scoring penalties
-- **Query tracking** - Complete audit trail of all candidate attempts
-- **Performance metrics** - Execution time, accuracy, and approach analysis
+### 📊 **Comprehensive Activity Tracking**
+- **Complete Query Logging** - Every SQL query captured including syntax errors and performance metrics
+- **Think Time Analysis** - Calculate time between candidate activities to measure analysis approach
+- **Tab Switching Detection** - Track when candidates navigate away (potential external consultation)
+- **Page Visibility Monitoring** - Detect minimization, tab switching with return duration tracking
+- **Session Activity** - Login events, page views, impersonation activities with IP and user agent
 
-### 👥 **Comprehensive Admin Interface**
-- **Candidate management** - View all assessments with filtering and search
-- **Detailed analytics** - Performance breakdowns by difficulty level
-- **Query history** - See exact SQL queries attempted by each candidate
-- **Export functionality** - Generate detailed assessment reports
-- **System insights** - Identify challenging problems and success patterns
+### 🏥 **VisiQuate Healthcare Evaluation Scenarios**
+- **Data Integrity Challenges** - Real-world healthcare data validation scenarios
+- **Account Balance Validation** - Test business rule: Balance = Charges - Payments - Adjustments
+- **Cross-Table Reconciliation** - Validate rollups between accounts and transactions tables  
+- **Payment Analysis** - Insurance vs patient payment patterns and reconciliation
+- **AR Status Distribution** - Analyze account receivable patterns by service date and payor
+- **Transaction Crosswalk Integrity** - Comprehensive data quality audits
 
-### 🎨 **Professional UI/UX**
-- **Mobile-first design** - Responsive interface for all devices
-- **CodeMirror integration** - Syntax highlighting with SQL comment support
-- **Real-time feedback** - Immediate query results and error handling
-- **Schema reference** - Interactive database structure viewer
-- **Dark/light theme support** - User preference detection with proper contrast
-- **Resilient authentication** - Graceful degradation when database unavailable
+### 👥 **Professional Admin Dashboard**
+- **Candidate Invitation Management** - Create, track, and manage candidate assessment URLs
+- **Activity Timeline View** - Complete chronological view of candidate behavior with think times
+- **Query History Analysis** - Review all queries including failed attempts and error patterns
+- **Performance Analytics** - Success rates, execution times, and analytical approach insights
+- **Evaluation Reports** - Export comprehensive candidate assessments for interview review
+
+### 🎨 **Evaluation-Focused UI/UX**
+- **Professional Assessment Interface** - Clean, distraction-free evaluation environment
+- **Embedded Schema Reference** - Healthcare data structure and business rules built into challenges
+- **SQLite Constraint Documentation** - Clear notes about CTE limitations and date function differences
+- **Activity Visibility Indicators** - Visual cues for page visibility changes and think time patterns
+- **Mobile-Responsive Design** - Seamless experience across devices for flexible assessment locations
+- **Impersonation Mode** - Admin can experience assessment exactly as candidates do
 
 ### 📊 **Smart Query Results & Pagination**
 - **Server-side pagination** - Navigate through millions of rows efficiently
@@ -65,16 +72,17 @@ python3 app.py
 
 The application will be available at: http://localhost:5002
 
-### 3. Upload Your Data
-1. Navigate to **Upload Data** page
-2. Upload CSV files or ZIP archives
-3. Data is automatically converted to SQLite tables
-4. Start exploring with the **Data Explorer**
+### 3. Admin Setup
+1. Navigate to **Admin Login** and enter your authorized email
+2. Go to **Admin Dashboard** → "Candidate Invitations"
+3. Create secure assessment URLs for candidates
+4. Use "Reseed Evaluation Challenges" to load VisiQuate healthcare scenarios
 
-### 4. Set Up Assessments
-1. Use **Challenge Mode** to test candidates
-2. View results in **Admin Dashboard**
-3. Export detailed reports for evaluation
+### 4. Candidate Assessment Process
+1. **Send Invitation**: Provide unique URL to candidate
+2. **Monitor Progress**: Watch real-time activity in admin dashboard
+3. **Review Analysis**: Examine query history, think times, and approach
+4. **Export Report**: Generate comprehensive assessment for interview discussion
 
 ## 📊 Application Modes
 
@@ -88,19 +96,19 @@ The application will be available at: http://localhost:5002
 - **SQL semantics respect** - LIMIT clauses honored exactly as written
 - **Query performance monitoring** - Execution time tracking with 60-second timeout
 
-### 🏆 **Challenge Mode** (Assessment)
-- **7 progressive challenges** from basic to expert level
-- **Healthcare data scenarios** with realistic business problems
-- **Scoring system** based on correctness, efficiency, and hints used
-- **Progressive hint system** for guided problem-solving
-- **Attempt tracking** with detailed performance metrics
+### 🏥 **Analysis Evaluation Mode** (Candidate Assessment)
+- **8 healthcare data integrity scenarios** - VisiQuate evaluation challenges
+- **Data validation focus** - Account balance, payment reconciliation, crosswalk integrity
+- **Approach evaluation** - Analytical thinking assessment rather than SQL proficiency testing
+- **Complete activity tracking** - Every query, error, and navigation event captured
+- **Think time measurement** - Time between activities shows analytical process
 
 ### 👨‍💼 **Admin Dashboard**
-- **Candidate overview** with completion rates and scores
-- **Performance analytics** by difficulty level and challenge type
-- **Query-by-query analysis** showing problem-solving approaches
-- **Export capabilities** for detailed assessment reports
-- **System-wide insights** for challenge optimization
+- **Candidate invitation management** - Generate secure time-limited assessment URLs
+- **Real-time activity monitoring** - Watch candidate progress with live activity feeds
+- **Comprehensive analytics** - Query success rates, think times, tab switching patterns
+- **Detailed candidate reports** - Complete assessment timeline with query history
+- **Admin impersonation** - Experience assessment exactly as candidates do
 
 ## 🏗️ Architecture Overview
 
@@ -115,8 +123,10 @@ data-explorer/
 ├── models/                   # Data models and database operations
 │   ├── __init__.py          # Package initialization
 │   ├── database.py          # Database connections and initialization
-│   ├── challenges.py        # Challenge system models
-│   └── users.py             # User management and sessions
+│   ├── challenges.py        # VisiQuate evaluation scenarios
+│   ├── users.py             # User management and candidate tracking
+│   ├── candidates.py        # Invitation system and activity logging
+│   └── admin_auth.py        # Admin authentication and authorization
 ├── routes/                   # Route handlers (future expansion)
 │   └── __init__.py          # Package initialization
 ├── utils/                    # Utility functions and helpers
@@ -124,15 +134,16 @@ data-explorer/
 │   ├── data_processing.py   # CSV processing and schema detection
 │   └── query_validation.py  # SQL security and validation
 ├── templates/
-│   ├── base.html             # Base layout template
-│   ├── index.html            # Landing page
+│   ├── base.html             # Base layout with activity tracking
+│   ├── index.html            # Candidate landing page (invitation-only)
 │   ├── explore.html          # Data explorer interface
-│   ├── upload.html           # Data upload interface
-│   ├── challenges.html       # Challenge mode interface
+│   ├── upload.html           # Data upload interface (admin-only)
+│   ├── challenges.html       # VisiQuate evaluation scenarios
 │   └── admin/                # Admin interface templates
-│       ├── dashboard.html    # Admin dashboard
-│       ├── candidates.html   # Candidate management
-│       └── candidate_detail.html # Detailed candidate view
+│       ├── dashboard.html    # Admin dashboard with invitation management
+│       ├── candidates.html   # Candidate activity tracking
+│       ├── candidate_detail.html # Detailed assessment view
+│       └── candidate_invitations.html # Invitation URL management
 ├── static/
 │   ├── css/style.css         # Custom styles
 │   └── js/app.js            # JavaScript utilities
@@ -141,104 +152,126 @@ data-explorer/
 
 ### 🔗 **API Endpoints**
 
-#### Data Management
+#### Candidate Assessment
 - `GET /api/schema` - Get database schema information
 - `GET /api/tables` - List available tables
-- `POST /api/execute` - Execute SQL queries with pagination support
-  - Parameters: `query`, `page` (default: 1), `rows_per_page` (default: 1000)
-  - Smart pagination: Respects user LIMIT clauses ≤5000 rows exactly
-- `GET /api/sample-queries` - Get intelligent sample queries
-- `POST /api/upload` - Upload CSV/ZIP data files
+- `POST /api/execute` - Execute SQL queries with comprehensive activity logging
+- `GET /api/sample-queries` - Get sample queries for data exploration
+- `POST /api/log-activity` - Log candidate page visibility and navigation events
 
-#### Challenge System
-- `GET /api/challenges` - Get all challenges by difficulty
-- `GET /api/challenge/<id>` - Get specific challenge details
-- `POST /api/challenge/<id>/attempt` - Submit challenge attempt
-- `GET /api/user/progress` - Get user progress across challenges
+#### VisiQuate Evaluation System  
+- `GET /api/challenges` - Get healthcare data integrity evaluation scenarios
+- `GET /api/challenge/<id>` - Get specific evaluation scenario details
+- `POST /api/challenge/<id>/attempt` - Submit evaluation scenario attempt
+- `GET /api/user/progress` - Get candidate progress across evaluation scenarios
 
-#### Admin Interface
-- `GET /api/admin/candidates` - Get all candidates with summaries
-- `GET /api/admin/candidate/<username>/detail` - Detailed candidate data
-- `GET /api/admin/analytics` - System-wide performance analytics
-- `GET /api/admin/export/candidate/<username>` - Export assessment report
+#### Admin Dashboard
+- `GET /api/admin/candidates` - Get all candidates with activity summaries
+- `GET /api/admin/candidate/<username>/detail` - Complete candidate activity timeline
+- `GET /api/admin/analytics` - System-wide evaluation performance analytics
+- `GET /api/admin/export/candidate/<username>` - Export comprehensive assessment report
 
-## 🎯 Challenge System Details
+#### Candidate Invitation Management
+- `GET /api/admin/candidates/invitations` - List all candidate invitation URLs
+- `POST /api/admin/candidates/invitations` - Create new secure candidate invitation
+- `POST /api/admin/candidates/invitations/<id>/deactivate` - Deactivate invitation URL
+- `GET /api/admin/candidates/<user_id>/activity` - Get detailed candidate activity log
 
-### **Challenge Difficulty Levels**
+#### Admin Tools & Impersonation
+- `POST /api/admin/impersonate/<user_id>` - Start admin impersonation of candidate
+- `POST /api/admin/end-impersonation` - End active impersonation session
+- `POST /api/admin/challenges/reseed` - Update evaluation scenarios with latest content
 
-#### 🌱 **Level 1: Basic** (Green)
-- Simple SELECT queries and filtering
-- Basic aggregation (COUNT, SUM)
-- Single table operations
-- *Example: "How many unique patients are in the charges data?"*
+## 🎯 VisiQuate Healthcare Evaluation Scenarios
 
-#### 🔥 **Level 2: Intermediate** (Yellow)
-- GROUP BY analysis and reporting
-- Date/time functions and filtering
-- Multiple aggregation functions
-- *Example: "Which month had the highest total charges?"*
+### **Evaluation Focus Areas**
 
-#### ⚡ **Level 3: Advanced** (Red)
-- Complex JOINs across multiple tables
-- Subqueries and analytical functions
-- Business logic implementation
-- *Example: "Find patients with invoices in multiple AR statuses"*
+#### 🌱 **Level 1: Data Integrity Basics**
+- **Account Balance Validation** - Test core business rule: Balance = Charges - Payments - Adjustments
+- **Claim Date Pattern Analysis** - Validate first_claim_bill_date ≤ last_claim_bill_date logic
+- **Data Overview & Exploration** - Understand table structures and record counts
 
-#### 👑 **Level 4: Expert** (Purple)
-- Advanced business intelligence queries
-- Performance optimization challenges
-- Complex date arithmetic and analysis
-- *Example: "Analyze revenue cycle efficiency by billing office"*
+#### 🔥 **Level 2: Cross-Table Validation** 
+- **Account vs Transaction Reconciliation** - Validate adjustment rollups between tables
+- **Payment Reconciliation Analysis** - Insurance vs patient payment validation across tables
+- **Multi-dimensional Validation** - Test multiple business rules simultaneously
 
-### **Scoring System**
-- **Base Score**: 100 points per challenge
-- **Correctness**: Based on result accuracy (±10% tolerance)
-- **Efficiency Bonus**: Faster queries earn bonus points
-- **Hint Penalty**: -10 points per hint used
-- **Time Factor**: Completion time affects final score
+#### ⚡ **Level 3: Advanced Business Analysis**
+- **AR Status & Balance Distribution** - Multi-faceted analysis combining rule validation with BI
+- **Primary Payor Performance Analysis** - Payment ratios, account status patterns, and efficiency metrics
+- **Temporal Pattern Analysis** - Service date trends and payor performance over time
 
-## 🎨 Sample Challenge Problems
+#### 👑 **Level 4: Expert Data Quality**
+- **Transaction Crosswalk Integrity** - Comprehensive data quality audit with orphan detection
+- **Advanced Data Quality** - Uniqueness validation, unused code identification, pattern analysis
+- **Complete System Validation** - Full end-to-end data integrity assessment
 
-### Basic Level
+### **Assessment Approach**
+- **Analytical Thinking Focus** - Evaluates problem-solving approach, not SQL syntax proficiency
+- **Business Context Understanding** - Tests real-world healthcare data integrity scenarios
+- **Documentation Emphasis** - Candidates document findings as they would for clients
+- **Methodology Assessment** - Process and reasoning more important than perfect queries
+
+## 🎨 VisiQuate Healthcare Evaluation Examples
+
+### Level 1: Account Balance Validation
 ```sql
--- Find Patient Count
-SELECT COUNT(DISTINCT NEW_PT_ID) FROM hw_charges;
+-- Test business rule: Balance = Charges - Payments - Adjustments
+SELECT invoice_id, 
+       balance, 
+       total_charges, 
+       total_payments, 
+       total_adjustments,
+       (total_charges - total_payments - total_adjustments) as calculated_balance,
+       (balance - (total_charges - total_payments - total_adjustments)) as variance
+FROM hw_accounts 
+WHERE (balance - (total_charges - total_payments - total_adjustments)) != 0;
 ```
 
-### Intermediate Level  
+### Level 2: Cross-Table Payment Reconciliation  
 ```sql
--- AR Status Distribution
-SELECT AR_STATUS, COUNT(*) as invoice_count 
-FROM hw_invoice 
-GROUP BY AR_STATUS 
-ORDER BY invoice_count DESC;
+-- Validate account-level payments match transaction-level rollups
+SELECT a.invoice_id, 
+       a.ins_payments, 
+       COALESCE(SUM(t.total_ins_payments), 0) as trans_ins_payments,
+       a.pt_payments, 
+       COALESCE(SUM(t.total_pt_payments), 0) as trans_pt_payments
+FROM hw_accounts a 
+LEFT JOIN hw_transactions t ON a.invoice_id = t.invoice_id 
+GROUP BY a.invoice_id
+HAVING a.ins_payments != COALESCE(SUM(t.total_ins_payments), 0)
+    OR a.pt_payments != COALESCE(SUM(t.total_pt_payments), 0);
 ```
 
-### Advanced Level
+### Level 3: AR Status Pattern Analysis
 ```sql
--- Insurance Reimbursement Analysis
-SELECT IPLAN_1_PAYOR, 
-       SUM(INVOICE_TOTAL_EXPECTED_REIMBURSEMENT) as expected,
-       SUM(INVOICE_TOTAL_INS_PAYMENTS) as actual,
-       ROUND(100.0 * SUM(INVOICE_TOTAL_INS_PAYMENTS) / 
-             SUM(INVOICE_TOTAL_EXPECTED_REIMBURSEMENT), 2) as rate
-FROM hw_invoice 
-WHERE IPLAN_1_PAYOR IS NOT NULL 
-GROUP BY IPLAN_1_PAYOR 
-ORDER BY rate DESC;
+-- Analyze open vs closed account patterns by payor and service month
+SELECT cur_payor, 
+       strftime('%Y-%m', service_start_date) as service_month,
+       COUNT(*) as total_accounts,
+       COUNT(CASE WHEN ar_status = 'Open' THEN 1 END) as open_accounts,
+       ROUND(100.0 * COUNT(CASE WHEN ar_status = 'Open' THEN 1 END) / COUNT(*), 2) as open_percentage
+FROM hw_accounts 
+WHERE cur_payor IS NOT NULL AND service_start_date IS NOT NULL
+GROUP BY cur_payor, service_month
+ORDER BY open_percentage DESC;
 ```
 
-### Expert Level
+### Level 4: Transaction Crosswalk Data Quality
 ```sql
--- Revenue Cycle Efficiency
-SELECT i.BILLING_OFFICE,
-       AVG(JULIANDAY(i.INVOICE_LAST_PAYMENT_DATE) - 
-           JULIANDAY(c.SERVICE_START_DATE)) as avg_days_to_payment
-FROM hw_invoice i 
-JOIN hw_charges c ON i.NEW_INVOICE_ID = c.NEW_INVOICE_ID
-WHERE i.AR_STATUS = 'Paid' AND i.INVOICE_LAST_PAYMENT_DATE IS NOT NULL
-GROUP BY i.BILLING_OFFICE
-ORDER BY avg_days_to_payment ASC;
+-- Comprehensive crosswalk integrity analysis with orphan detection
+SELECT 'Crosswalk Duplicates' as issue_type, 
+       COUNT(*) as count 
+FROM (SELECT txn_type_code, txn_sub_type_code, COUNT(*) 
+      FROM hw_trn_codes 
+      GROUP BY txn_type_code, txn_sub_type_code 
+      HAVING COUNT(*) > 1)
+UNION
+SELECT 'Orphan Transactions' as issue_type, 
+       COUNT(DISTINCT t.txn_sub_type_code) 
+FROM hw_transactions t 
+LEFT JOIN hw_trn_codes c ON t.txn_sub_type_code = c.txn_sub_type_code 
+WHERE c.txn_sub_type_code IS NULL;
 ```
 
 ## 📊 Admin Analytics Features
@@ -266,13 +299,13 @@ ORDER BY avg_days_to_payment ASC;
 
 ## 🎯 Recent Updates
 
-### **v2.2.0 - Smart Pagination & Enhanced UX** 📊
-- **Smart server-side pagination** - Navigate through millions of rows efficiently
-- **SQL semantics compliance** - Respects user LIMIT clauses (≤5000) exactly as written
-- **Configurable page sizes** - Choose 100, 250, 500, or 1000 rows per page with persistent preferences
-- **Font size controls** - 5 adjustable levels (XS to XL) for optimal data viewing
-- **Performance optimization** - Prevents browser freezing with large result sets
-- **User experience improvements** - Loading states, progress tracking, and intuitive controls
+### **v3.0.0 - VisiQuate Healthcare Evaluation Platform** 🏥
+- **Secure Candidate Invitation System** - Time-limited unique URLs with usage tracking and admin impersonation
+- **Comprehensive Activity Tracking** - Every query, error, navigation event with think time analysis
+- **Tab Switching Detection** - Monitor when candidates navigate away (potential external consultation)
+- **VisiQuate Healthcare Scenarios** - 8 real-world data integrity evaluation challenges
+- **Professional Assessment Interface** - Focus on analytical approach over SQL proficiency
+- **Admin Activity Dashboard** - Complete candidate timeline with query history and performance analytics
 
 ### **v2.1.0 - Production Stability & Performance** 🚀
 - **High-performance CSV processing** - Optimized for 150K+ row datasets with column type caching
@@ -283,12 +316,11 @@ ORDER BY avg_days_to_payment ASC;
 - **Production deployment fixes** - Resolved container permissions and initialization issues
 - **UI visibility enhancements** - Fixed dark theme code examples and error templates
 
-### **v2.0.0 - Data Explorer Transformation** 🔄
-- **Dynamic CSV import system** - Upload any data, get instant SQL interface
-- **Challenge mode** - Progressive difficulty assessment system  
-- **Admin dashboard** - Comprehensive candidate evaluation tools
-- **Modular architecture** - Maintainable, scalable codebase
-- **UI/UX overhaul** - Modern, responsive, mobile-first design
+### **v2.2.0 - Smart Pagination & Enhanced UX** 📊
+- **Smart server-side pagination** - Navigate through millions of rows efficiently
+- **SQL semantics compliance** - Respects user LIMIT clauses (≤5000) exactly as written
+- **Configurable page sizes** - Choose 100, 250, 500, or 1000 rows per page with persistent preferences
+- **Font size controls** - 5 adjustable levels (XS to XL) for optimal data viewing
 
 ## 🐳 Docker Deployment
 
@@ -342,29 +374,30 @@ docker compose ps
 - **Accessibility**: WCAG 2.1 AA compliance
 - **Progressive Web App**: Offline capability and installable
 
-## 🎯 Interview Usage Guide
+## 🎯 VisiQuate Assessment Usage Guide
 
-### **For Interviewers**
-1. **Setup**: Upload relevant CSV data or use default healthcare dataset
-2. **Challenge Selection**: Choose appropriate difficulty level for candidate
-3. **Real-time Monitoring**: Watch candidate progress through admin dashboard
-4. **Assessment**: Review detailed query history and problem-solving approach
-5. **Export**: Generate comprehensive assessment report for evaluation
+### **For VisiQuate Interviewers**
+1. **Admin Setup**: Login with authorized email (brent.langston@visiquate.com, peyton.meroney@visiquate.com, jean-claire.chamian@visiquate.com)
+2. **Create Invitation**: Generate secure candidate URL with expiration date via Admin Dashboard → Candidate Invitations
+3. **Send to Candidate**: Provide unique assessment URL (expires automatically to prevent sharing)
+4. **Real-time Monitoring**: Watch candidate progress, query attempts, and think times through admin dashboard
+5. **Review Analysis**: Examine complete activity timeline including tab switching and analytical approach
+6. **Export Report**: Generate comprehensive assessment for interview discussion
 
 ### **For Candidates**
-1. **Familiarization**: Start with Data Explorer to understand the schema
-2. **Challenge Mode**: Work through progressive difficulty levels
-3. **Hint Usage**: Use hints strategically (impacts final score)
-4. **SQL Best Practices**: Write clean, efficient queries with comments
-5. **Problem-Solving**: Think through business requirements before coding
+1. **Access Assessment**: Use provided unique URL (no registration required)
+2. **Understand Context**: This evaluates analytical thinking, not SQL proficiency
+3. **Document Approach**: Save queries and document findings for interview discussion
+4. **Focus on Method**: Emphasis on problem-solving process and business insights
+5. **Use Resources**: Schema reference and business rules provided within assessment
 
-### **Key Assessment Areas**
-- **Data Retrieval**: SELECT, WHERE, ORDER BY fundamentals
-- **Aggregation**: GROUP BY, aggregate functions, HAVING clauses
-- **Joins**: INNER/LEFT/RIGHT joins across multiple tables
-- **Date Analysis**: Date functions and time-based filtering
-- **Business Intelligence**: KPIs, ratios, and analytical queries
-- **Advanced SQL**: Window functions, CTEs, complex subqueries
+### **Key Evaluation Areas**
+- **Data Integrity Validation**: Testing business rules and identifying violations
+- **Cross-Table Reconciliation**: Validating rollups between related tables
+- **Pattern Recognition**: Identifying trends in AR status, payor performance, and date patterns
+- **Data Quality Assessment**: Finding orphan records, duplicates, and data inconsistencies
+- **Business Analysis**: Understanding healthcare finance concepts (AR, claims, payments)
+- **Analytical Documentation**: Summarizing findings as you would for clients
 
 ## 🔐 Data Privacy & Security
 

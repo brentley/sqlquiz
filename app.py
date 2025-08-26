@@ -301,7 +301,7 @@ def admin_simple_login():
         return jsonify({'success': False, 'error': 'Email is required'}), 400
     
     # Check if email is in the allowed list
-    allowed_admins = ['brent.langston@visiquate.com', 'peyton.meroney@visiquate.com']
+    allowed_admins = ['brent.langston@visiquate.com', 'peyton.meroney@visiquate.com', 'jean-claire.chamian@visiquate.com']
     if email not in allowed_admins:
         log_admin_action(None, 'unauthorized_simple_login_attempt', f'Email: {email}')
         return jsonify({'success': False, 'error': 'Access denied. You are not authorized as an admin.'}), 403

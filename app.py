@@ -119,6 +119,10 @@ def candidate_login(token):
         flash(f"Authentication failed: {auth_result['error']}", 'error')
         return render_template('candidate_invalid.html')
     
+    # Clear any existing admin session data
+    session.pop('admin_session_token', None)
+    session.pop('admin_user', None)
+    
     # Set candidate session
     session['candidate_session_token'] = auth_result['session_token']
     session['candidate_user_id'] = auth_result['user_id']

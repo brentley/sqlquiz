@@ -101,11 +101,20 @@ def authenticate_candidate(token):
         if user:
             user_id = user['id']
         else:
-            # Create new user for this candidate
+            # Create new user for this candidate with unique username if needed
+            base_username = invitation['candidate_name']
+            username = base_username
+            counter = 1
+            
+            # Ensure username is unique
+            while conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone():
+                username = f"{base_username}_{counter}"
+                counter += 1
+            
             cursor = conn.execute('''
                 INSERT INTO users (username, email, is_admin, is_active)
                 VALUES (?, ?, 0, 1)
-            ''', (invitation['candidate_name'], invitation['email']))
+            ''', (username, invitation['email']))
             user_id = cursor.lastrowid
         
         # Generate session token

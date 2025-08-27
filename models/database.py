@@ -220,7 +220,7 @@ def create_user_tables(conn):
         )
     ''')
     
-    # Create challenges table
+    # Create challenges table with admin-only columns
     conn.execute('''
         CREATE TABLE IF NOT EXISTS challenges (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -234,6 +234,8 @@ def create_user_tables(conn):
             hints TEXT, -- JSON array of progressive hints
             max_score INTEGER DEFAULT 100,
             time_limit_minutes INTEGER DEFAULT 30,
+            admin_sql_example TEXT, -- Internal SQL examples (admin only)
+            admin_notes TEXT, -- Internal notes and expectations (admin only)
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_active BOOLEAN DEFAULT 1
         )
@@ -365,6 +367,28 @@ def verify_user_database_schema(conn):
     except Exception as e:
         print(f"Error verifying users table schema: {e}")
         # If users table doesn't exist, it will be created by create_user_tables
+
+    # Check challenges table schema and add admin columns if needed
+    try:
+        challenges_info = conn.execute("PRAGMA table_info(challenges)").fetchall()
+        challenges_columns = [col['name'] for col in challenges_info]
+        print(f"Challenges table columns: {challenges_columns}")
+        
+        # Add admin columns if they don't exist
+        if 'admin_sql_example' not in challenges_columns:
+            conn.execute("ALTER TABLE challenges ADD COLUMN admin_sql_example TEXT")
+            print("Added admin_sql_example column to challenges table")
+        
+        if 'admin_notes' not in challenges_columns:
+            conn.execute("ALTER TABLE challenges ADD COLUMN admin_notes TEXT")
+            print("Added admin_notes column to challenges table")
+            
+        conn.commit()
+        print("Challenges table schema updated with admin columns")
+        
+    except Exception as e:
+        print(f"Error updating challenges table schema: {e}")
+        # If challenges table doesn't exist, it will be created by create_user_tables
     
     # Check user_sessions table schema
     try:

@@ -616,17 +616,27 @@ def api_challenges():
 
 
 @app.route('/api/challenge/<int:challenge_id>')
-@require_admin
 def api_challenge_detail(challenge_id):
-    """Get challenge details (ADMIN ONLY)"""
-    admin_user = session.get('admin_user', {})
-    log_admin_action(admin_user.get('id'), 'api_challenge_detail', f'Viewed challenge {challenge_id}')
+    """Get challenge details - includes admin info only for admins"""
+    # Check if user has admin or candidate access
+    if not (session.get('is_admin') or session.get('user_id')):
+        return jsonify({'error': 'Access denied'}), 403
     
     challenge = get_challenge_by_id(challenge_id, session.get('user_id'))
-    if challenge:
-        return jsonify(challenge)
-    else:
+    if not challenge:
         return jsonify({'error': 'Challenge not found'}), 404
+    
+    # Remove admin information if not an admin
+    if not session.get('is_admin'):
+        challenge.pop('admin_sql_example', None)
+        challenge.pop('admin_notes', None)
+        
+    # Log admin access
+    if session.get('is_admin'):
+        admin_user = session.get('admin_user', {})
+        log_admin_action(admin_user.get('id'), 'api_challenge_detail', f'Viewed challenge {challenge_id}')
+    
+    return jsonify(challenge)
 
 
 @app.route('/api/challenge/<int:challenge_id>/attempt', methods=['POST'])

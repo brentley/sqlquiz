@@ -370,6 +370,31 @@ function displayChallengeModal(challenge) {
                     </div>
                 </div>
                 
+                <!-- Admin-only information -->
+                {% if session.is_admin %}
+                <div class="card border-danger mt-3">
+                    <div class="card-header bg-danger text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-user-shield me-2"></i>Admin Only - Internal Information
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        ${challenge.admin_sql_example ? `
+                            <div class="mb-3">
+                                <h6 class="text-danger">SQL Examples:</h6>
+                                <pre class="bg-light p-2 rounded small"><code>${challenge.admin_sql_example}</code></pre>
+                            </div>
+                        ` : ''}
+                        ${challenge.admin_notes ? `
+                            <div class="mb-3">
+                                <h6 class="text-danger">Internal Notes:</h6>
+                                <div class="small">${challenge.admin_notes.split('\\n').map(line => `<p class="mb-1">${line}</p>`).join('')}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                {% endif %}
+                
                 <div class="card border-0 bg-light mt-3">
                     <div class="card-header">
                         <h6 class="mb-0">
